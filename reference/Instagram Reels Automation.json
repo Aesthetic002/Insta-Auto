@@ -1,0 +1,375 @@
+{
+  "name": "Instagram Reels Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            },
+            {
+              "triggerAtHour": 18,
+              "triggerAtMinute": 10
+            }
+          ]
+        }
+      },
+      "id": "a9784f91-719b-4856-92d9-c137b8881912",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.Outline }}",
+        "options": {
+          "systemMessage": "You are a social media expert who writes engaging and SEO optimized Instagram captions. Create a short and catchy caption for the given video topic. Make sure the tone sounds natural and appealing to the audience. Add two highly relevant hashtags at the end that fit the topic."
+        }
+      },
+      "id": "7be50170-aa41-4c8f-852f-9009e0bac7be",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        528,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "2553bc9c-2c37-4f27-b063-8bfeb006745c",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        544,
+        0
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Wn3CqrJXUumY1glL",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v23.0",
+        "node": "17841436228275979",
+        "edge": "=media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "video_url",
+                "value": "=https://res.cloudinary.com/djgs90vay/video/upload/Reels/{{ $('Get row(s) in sheet').item.json['File Name'] }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $('AI Agent').item.json.output }}"
+              },
+              {
+                "name": "media_type",
+                "value": "REELS"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e3abe5b7-2f52-46f0-843d-43eba21fcb6e",
+      "name": "Facebook Graph API - Create Container",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        848,
+        -192
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "5TQiBv0G4MTjfrcX",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      },
+      "id": "9af67186-6f39-4836-a5bf-29b57169f927",
+      "name": "Wait 60 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -192
+      ],
+      "webhookId": "377b05d2-b56a-4ee0-9e9d-2bd5cdca3ca7",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v23.0",
+        "node": "17841436228275979",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $('Facebook Graph API - Create Container').item.json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "d5739fb8-cc4a-4bd0-b1ac-a16c6b1abf70",
+      "name": "Facebook Graph API - Publish Video",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        -208
+      ],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "5TQiBv0G4MTjfrcX",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo",
+          "mode": "list",
+          "cachedResultName": "Reels Autoo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('Get row(s) in sheet').item.json.row_number }}",
+            "Status": "Posted"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "File Name",
+              "displayName": "File Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Outline",
+              "displayName": "Outline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d2a6f5c8-f4d0-45df-ac97-e552a3d93bc9",
+      "name": "Google Sheets - Update Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1488,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0guueYc4rPWLyak0",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo",
+          "mode": "list",
+          "cachedResultName": "Reels Autoo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1D4nQae-CgGzCRP4f9nG7eGedERHKm1BfGX4KHhcSCgo/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Status"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        304,
+        -192
+      ],
+      "id": "246a3c2e-c8d8-413f-a6e1-ca813b45a2a2",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "0guueYc4rPWLyak0",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Facebook Graph API - Create Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Graph API - Create Container": {
+      "main": [
+        [
+          {
+            "node": "Wait 60 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 60 Seconds": {
+      "main": [
+        [
+          {
+            "node": "Facebook Graph API - Publish Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Graph API - Publish Video": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0d9f1e03-e281-4277-b749-15d90305dab7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6a602e32179c7290863843e87636e6427576e0059257ea970a2a5ad9267358d0"
+  },
+  "id": "rh36eqlUyJq9zTxQ",
+  "tags": []
+}

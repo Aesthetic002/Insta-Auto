@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm install prisma @prisma/client)",
+      "PowerShell(npm install -D tsx)",
+      "PowerShell(npx prisma init --datasource-provider postgresql)",
+      "PowerShell(npx --yes shadcn@latest init --yes --base-color slate)",
+      "PowerShell(npx --yes shadcn@latest init --yes)"
+    ]
+  }
+}

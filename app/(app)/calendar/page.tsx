@@ -31,11 +31,13 @@ export default async function CalendarPage({
   const me = await db.user.findUnique({ where: { id: userId } });
   if (me?.role !== "CREATOR") redirect("/dashboard");
 
-  const today = new Date();
-  const year = params.y ? Number(params.y) : today.getFullYear();
-  const month = params.m ? Number(params.m) - 1 : today.getMonth();
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 1);
+  // Use UTC-based "today" so the calendar is consistent regardless of server timezone.
+  const now = new Date();
+  const todayUtc = { y: now.getUTCFullYear(), m: now.getUTCMonth(), d: now.getUTCDate() };
+  const year = params.y ? Number(params.y) : todayUtc.y;
+  const month = params.m ? Number(params.m) - 1 : todayUtc.m;
+  const monthStart = new Date(Date.UTC(year, month, 1));
+  const monthEnd = new Date(Date.UTC(year, month + 1, 1));
 
   const posts = await db.post.findMany({
     where: {
@@ -60,8 +62,7 @@ export default async function CalendarPage({
 
   const days = buildMonthGrid(year, month);
   const prevMonth = month === 0 ? { y: year - 1, m: 12 } : { y: year, m: month };
-  const nextMonth =
-    month === 11 ? { y: year + 1, m: 1 } : { y: year, m: month + 2 };
+  const nextMonth = month === 11 ? { y: year + 1, m: 1 } : { y: year, m: month + 2 };
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -83,9 +84,10 @@ export default async function CalendarPage({
             <ChevronLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-44 text-center text-sm font-medium">
-            {monthStart.toLocaleDateString(undefined, {
+            {monthStart.toLocaleDateString("en-US", {
               month: "long",
               year: "numeric",
+              timeZone: "UTC",
             })}
           </div>
           <Link
@@ -123,7 +125,10 @@ export default async function CalendarPage({
         {days.map(({ date, isCurrentMonth }) => {
           const key = dayKey(date);
           const dayPosts = byDay.get(key) ?? [];
-          const isToday = sameDay(date, today);
+          const isToday =
+            date.getUTCFullYear() === todayUtc.y &&
+            date.getUTCMonth() === todayUtc.m &&
+            date.getUTCDate() === todayUtc.d;
           return (
             <div
               key={date.toISOString()}
@@ -140,7 +145,7 @@ export default async function CalendarPage({
                       "bg-fuchsia-500 font-semibold text-white shadow-sm shadow-fuchsia-500/30"
                   )}
                 >
-                  {date.getDate()}
+                  {date.getUTCDate()}
                 </span>
                 {dayPosts.length > 3 && (
                   <span className="text-[10px] text-zinc-400">
@@ -162,10 +167,7 @@ export default async function CalendarPage({
                         )}
                       />
                       <span className="truncate">
-                        {(p.scheduledAt ?? p.postedAt!).toLocaleTimeString(
-                          undefined,
-                          { hour: "numeric", minute: "2-digit" }
-                        )}{" "}
+                        {utcTimeLabel(p.scheduledAt ?? p.postedAt!)}{" "}
                         · {p.outline}
                       </span>
                     </Link>
@@ -201,30 +203,30 @@ function Legend() {
   );
 }
 
+// All grid/key helpers use UTC so Vercel's server timezone doesn't shift dates.
 function buildMonthGrid(
   year: number,
   month: number
 ): Array<{ date: Date; isCurrentMonth: boolean }> {
-  const first = new Date(year, month, 1);
-  const start = new Date(first);
-  start.setDate(start.getDate() - first.getDay());
+  const first = new Date(Date.UTC(year, month, 1));
+  const startDay = first.getUTCDay(); // 0=Sun
   const grid: Array<{ date: Date; isCurrentMonth: boolean }> = [];
   for (let i = 0; i < 42; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    grid.push({ date: d, isCurrentMonth: d.getMonth() === month });
+    const d = new Date(Date.UTC(year, month, 1 - startDay + i));
+    grid.push({ date: d, isCurrentMonth: d.getUTCMonth() === month });
   }
   return grid;
 }
 
 function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
 }
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+// Format a UTC timestamp as local time string for display (browser-consistent on server via toISOString trick)
+function utcTimeLabel(d: Date): string {
+  const h = d.getUTCHours();
+  const m = d.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m} ${ampm}`;
 }

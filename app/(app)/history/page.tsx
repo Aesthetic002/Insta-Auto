@@ -8,6 +8,8 @@ import {
   History,
   XCircle,
 } from "lucide-react";
+
+import { LocalTime } from "@/components/local-time";
 import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
@@ -151,10 +153,7 @@ export default async function HistoryPage() {
                         </Link>
                         <p className="mt-0.5 text-xs text-zinc-500">
                           {isPosted ? "Published" : "Failed"}{" "}
-                          {new Date(postedAt).toLocaleString(undefined, {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
+                          <LocalTime date={postedAt.toISOString()} dateStyle="medium" timeStyle="short" />
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">

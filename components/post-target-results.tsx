@@ -1,5 +1,6 @@
 import { ExternalLink, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LocalTime } from "@/components/local-time";
 
 type TargetStatus = "PENDING" | "PUBLISHING" | "POSTED" | "FAILED";
 
@@ -70,11 +71,7 @@ export function PostTargetResults({ targets }: { targets: Target[] }) {
                 </div>
                 {postedAt && (
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    Posted{" "}
-                    {postedAt.toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
+                    Posted <LocalTime date={new Date(postedAt).toISOString()} dateStyle="medium" timeStyle="short" />
                   </p>
                 )}
                 {t.errorMessage && (

@@ -22,7 +22,6 @@ export async function publishToFacebook(
   const token = decrypt(opts.encryptedToken);
 
   if (opts.mediaType === "VIDEO") {
-    // FB Pages video upload
     const res = await fetch(`${GRAPH_BASE}/${v()}/${opts.pageId}/videos`, {
       method: "POST",
       body: new URLSearchParams({
@@ -34,14 +33,12 @@ export async function publishToFacebook(
     });
     const json = await res.json();
     if (!res.ok || !json.id) throw new Error(`FB video post failed: ${JSON.stringify(json).slice(0, 400)}`);
-    return {
-      platformPostId: json.id as string,
-      platformUrl: `https://www.facebook.com/video.php?v=${json.id}`,
-    };
+    const postId = json.id as string;
+    const permalink = await fetchPermalink(postId, token);
+    return { platformPostId: postId, platformUrl: permalink };
   }
 
   if (opts.mediaUrls.length === 1) {
-    // Single photo
     const res = await fetch(`${GRAPH_BASE}/${v()}/${opts.pageId}/photos`, {
       method: "POST",
       body: new URLSearchParams({
@@ -53,19 +50,17 @@ export async function publishToFacebook(
     });
     const json = await res.json();
     if (!res.ok || !json.id) throw new Error(`FB photo post failed: ${JSON.stringify(json).slice(0, 400)}`);
-    return { platformPostId: json.id as string, platformUrl: null };
+    const postId = json.id as string;
+    const permalink = await fetchPermalink(postId, token);
+    return { platformPostId: postId, platformUrl: permalink };
   }
 
-  // Multi-photo: upload each unpublished, then create a post linking them
+  // Multi-photo carousel
   const photoIds: string[] = [];
   for (const url of opts.mediaUrls) {
     const r = await fetch(`${GRAPH_BASE}/${v()}/${opts.pageId}/photos`, {
       method: "POST",
-      body: new URLSearchParams({
-        url,
-        published: "false",
-        access_token: token,
-      }),
+      body: new URLSearchParams({ url, published: "false", access_token: token }),
       cache: "no-store",
     });
     const j = await r.json();
@@ -83,5 +78,21 @@ export async function publishToFacebook(
   });
   const postJson = await postRes.json();
   if (!postRes.ok || !postJson.id) throw new Error(`FB feed post failed: ${JSON.stringify(postJson).slice(0, 400)}`);
-  return { platformPostId: postJson.id as string, platformUrl: null };
+  const postId = postJson.id as string;
+  const permalink = await fetchPermalink(postId, token);
+  return { platformPostId: postId, platformUrl: permalink };
+}
+
+// Fetch the public permalink for any FB object (post, video, photo).
+async function fetchPermalink(objectId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${GRAPH_BASE}/${v()}/${objectId}?fields=permalink_url&access_token=${token}`,
+      { cache: "no-store" }
+    );
+    const json = await res.json();
+    return (json.permalink_url as string) ?? null;
+  } catch {
+    return null;
+  }
 }

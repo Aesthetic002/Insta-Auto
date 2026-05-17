@@ -39,32 +39,52 @@ const PLATFORM_ICONS: Record<Platform, string> = {
 interface Props {
   postId: string;
   accounts: SocialAccountOption[];
-  selectedAccountId: string | null;
-  onSelect: (account: SocialAccountOption) => void;
+  selectedAccountIds: string[];
+  onSelect: (accounts: SocialAccountOption[]) => void;
 }
 
-export function SocialAccountPicker({
-  postId,
-  accounts,
-  selectedAccountId,
-  onSelect,
-}: Props) {
+export function SocialAccountPicker({ postId, accounts, selectedAccountIds, onSelect }: Props) {
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set(selectedAccountIds));
 
-  const handleSelect = async (account: SocialAccountOption) => {
-    if (account.id === selectedAccountId) return;
+  const toggle = async (account: SocialAccountOption) => {
+    const next = new Set(selected);
+    if (next.has(account.id)) {
+      next.delete(account.id);
+    } else {
+      next.add(account.id);
+    }
+    setSelected(next);
+
     setSaving(true);
     try {
-      const res = await fetch(`/api/posts/${postId}`, {
-        method: "PATCH",
+      const accountIds = Array.from(next);
+      const res = await fetch(`/api/posts/${postId}/targets`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ socialAccountId: account.id, platform: account.platform }),
+        body: JSON.stringify({ accountIds }),
       });
-      if (!res.ok) throw new Error("Failed to update");
-      onSelect(account);
-      toast.success(`Publishing to ${PLATFORM_LABELS[account.platform]}`);
-    } catch {
-      toast.error("Could not update target account");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error ?? errJson.message ?? `Server error ${res.status}`);
+      }
+      const selectedAccounts = accounts.filter((a) => next.has(a.id));
+      onSelect(selectedAccounts);
+      if (next.size === 0) {
+        toast.info("No accounts selected.");
+      } else if (next.size === 1) {
+        const acc = selectedAccounts[0];
+        const label = acc.username ? `@${acc.username}` : acc.displayName ?? PLATFORM_LABELS[acc.platform];
+        toast.success(`Publishing to ${label}`);
+      } else {
+        toast.success(`Publishing to ${next.size} accounts`);
+      }
+    } catch (err) {
+      // Revert on error
+      setSelected(selected);
+      const msg = err instanceof Error ? err.message : "Could not update target accounts";
+      toast.error(msg);
+      console.error("[account-picker] targets update failed", err);
     } finally {
       setSaving(false);
     }
@@ -85,24 +105,27 @@ export function SocialAccountPicker({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Publish to
-        </p>
+        <div>
+          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Publish to</p>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">Select one or more accounts</p>
+        </div>
         {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />}
       </div>
       <div className="flex flex-wrap gap-2">
         {accounts.map((acc) => {
-          const isSelected = acc.id === selectedAccountId;
+          const isSelected = selected.has(acc.id);
           const label =
-            acc.username
+            acc.username && !acc.username.startsWith("board:")
               ? `@${acc.username}`
-              : acc.displayName ?? PLATFORM_LABELS[acc.platform];
+              : acc.displayName && !acc.displayName.startsWith("board:")
+              ? acc.displayName
+              : PLATFORM_LABELS[acc.platform];
 
           return (
             <button
               key={acc.id}
               type="button"
-              onClick={() => handleSelect(acc)}
+              onClick={() => toggle(acc)}
               disabled={saving}
               className={cn(
                 "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
@@ -111,10 +134,12 @@ export function SocialAccountPicker({
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               )}
             >
-              <span className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br text-[10px]",
-                PLATFORM_COLORS[acc.platform]
-              )}>
+              <span
+                className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br text-[10px]",
+                  PLATFORM_COLORS[acc.platform]
+                )}
+              >
                 {PLATFORM_ICONS[acc.platform]}
               </span>
               {label}
@@ -123,6 +148,11 @@ export function SocialAccountPicker({
           );
         })}
       </div>
+      {selected.size > 1 && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          This post will be published to {selected.size} accounts simultaneously.
+        </p>
+      )}
     </div>
   );
 }

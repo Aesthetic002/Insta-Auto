@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import {
   Calendar,
+  History,
   ImageIcon,
   LayoutDashboard,
   LogOut,
@@ -98,6 +99,7 @@ export default async function AppLayout({
         {me.role === "CREATOR" && (
           <NavItem href="/calendar" icon={<Calendar className="h-4 w-4" />}>Calendar</NavItem>
         )}
+        <NavItem href="/history" icon={<History className="h-4 w-4" />}>History</NavItem>
         <NavItem href="/settings" icon={<Settings className="h-4 w-4" />}>Settings</NavItem>
       </nav>
     </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import { publishPost } from "@/lib/publish";
+import { publishPost, publishPostToTargets } from "@/lib/publish";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -43,7 +43,10 @@ export async function GET(request: Request) {
       continue;
     }
 
-    if (!post.caption || !post.socialAccount || post.socialAccount.disconnectedAt) {
+    const targets = await db.postTarget.findMany({ where: { postId: post.id } });
+    const hasTargets = targets.length > 0;
+
+    if (!post.caption || (!hasTargets && (!post.socialAccount || post.socialAccount.disconnectedAt))) {
       await db.post.update({
         where: { id: post.id },
         data: {
@@ -61,19 +64,23 @@ export async function GET(request: Request) {
     }
 
     try {
-      const { platformPostId, platformUrl } = await publishPost(post.id);
-      await db.post.update({
-        where: { id: post.id },
-        data: {
-          status: "POSTED",
-          platformPostId,
-          platformUrl,
-          postedAt: new Date(),
-          ...(post.platform === "INSTAGRAM"
-            ? { igMediaId: platformPostId, igPermalink: platformUrl }
-            : {}),
-        },
-      });
+      if (hasTargets) {
+        await publishPostToTargets(post.id);
+      } else {
+        const { platformPostId, platformUrl } = await publishPost(post.id);
+        await db.post.update({
+          where: { id: post.id },
+          data: {
+            status: "POSTED",
+            platformPostId,
+            platformUrl,
+            postedAt: new Date(),
+            ...(post.platform === "INSTAGRAM"
+              ? { igMediaId: platformPostId, igPermalink: platformUrl }
+              : {}),
+          },
+        });
+      }
       results.push({ id: post.id, status: "posted" });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

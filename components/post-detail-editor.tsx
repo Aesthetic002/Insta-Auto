@@ -29,6 +29,7 @@ interface PostShape {
   outline: string;
   platform: Platform | null;
   socialAccountId: string | null;
+  selectedAccountIds: string[];
   mediaType: "VIDEO" | "PHOTO" | "CAROUSEL";
   mediaUrls: string[];
 }
@@ -50,28 +51,23 @@ export function PostDetailEditor({
   const [publishing, setPublishing] = useState(false);
   const [deleting, startDelete] = useTransition();
 
-  // Track the selected account so the preview updates instantly
-  const initialAccount =
-    accounts.find((a) => a.id === post.socialAccountId) ?? null;
-  const [selectedAccount, setSelectedAccount] =
-    useState<SocialAccountOption | null>(initialAccount);
+  const [selectedAccounts, setSelectedAccounts] = useState<SocialAccountOption[]>(
+    accounts.filter((a) => post.selectedAccountIds.includes(a.id))
+  );
 
   const isTerminal = post.status === "POSTED";
-  const platformLabel = selectedAccount
-    ? { INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", PINTEREST: "Pinterest" }[selectedAccount.platform]
-    : "your platform";
+  const primaryAccount = selectedAccounts[0] ?? null;
+  const PLATFORM_NAMES: Record<string, string> = { INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", PINTEREST: "Pinterest" };
+  const platformLabel = primaryAccount ? PLATFORM_NAMES[primaryAccount.platform] : "your platform";
 
   const generate = async () => {
     setError(null);
     setGenerating(true);
     const tid = toast.loading("Drafting caption with Gemini…");
     try {
-      const res = await fetch(`/api/posts/${post.id}/generate-caption`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/posts/${post.id}/generate-caption`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok)
-        throw new Error(json.message ?? json.error ?? "Caption generation failed");
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Caption generation failed");
       setCaption(json.post.caption ?? "");
       setSavedAt(Date.now());
       toast.success("Caption ready — edit if you want.", { id: tid });
@@ -113,17 +109,23 @@ export function PostDetailEditor({
       toast.warning(msg);
       return;
     }
-    if (!selectedAccount) {
-      const msg = "Pick a social account to publish to.";
+    if (selectedAccounts.length === 0) {
+      const msg = "Pick at least one social account to publish to.";
       setError(msg);
       toast.warning(msg);
       return;
     }
-    if (!confirm(`Publish this post to ${platformLabel} now? This cannot be undone.`)) return;
+
+    const accountSummary =
+      selectedAccounts.length === 1
+        ? platformLabel
+        : `${selectedAccounts.length} accounts`;
+
+    if (!confirm(`Publish this post to ${accountSummary} now? This cannot be undone.`)) return;
 
     setError(null);
     setPublishing(true);
-    const tid = toast.loading(`Publishing to ${platformLabel}… (can take up to a minute)`);
+    const tid = toast.loading(`Publishing to ${accountSummary}… (can take up to a minute)`);
     try {
       await fetch(`/api/posts/${post.id}`, {
         method: "PATCH",
@@ -132,8 +134,12 @@ export function PostDetailEditor({
       });
       const res = await fetch(`/api/posts/${post.id}/publish`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message ?? json.error ?? "Publish failed");
-      toast.success(`Posted to ${platformLabel}!`, { id: tid });
+      if (!res.ok && res.status !== 207) throw new Error(json.message ?? json.error ?? "Publish failed");
+      if (res.status === 207) {
+        toast.warning(`Partially published — some accounts failed. Check the post for details.`, { id: tid });
+      } else {
+        toast.success(`Posted to ${accountSummary}!`, { id: tid });
+      }
       router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -151,8 +157,8 @@ export function PostDetailEditor({
     try {
       const res = await fetch(`/api/posts/${post.id}/publish`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message ?? json.error ?? "Retry failed");
-      toast.success(`Posted to ${platformLabel}!`, { id: tid });
+      if (!res.ok && res.status !== 207) throw new Error(json.message ?? json.error ?? "Retry failed");
+      toast.success(`Published!`, { id: tid });
       router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -232,25 +238,35 @@ export function PostDetailEditor({
           <SocialAccountPicker
             postId={post.id}
             accounts={accounts}
-            selectedAccountId={selectedAccount?.id ?? null}
-            onSelect={(acc) => setSelectedAccount(acc)}
+            selectedAccountIds={selectedAccounts.map((a) => a.id)}
+            onSelect={(accs) => setSelectedAccounts(accs)}
           />
         </div>
       )}
 
-      {/* Live platform preview */}
-      {selectedAccount && (
-        <div className="space-y-2">
+      {/* Live platform previews — one per selected account */}
+      {selectedAccounts.length > 0 && (
+        <div className="space-y-4">
           <Label className="text-xs uppercase tracking-wide text-zinc-500">Preview</Label>
-          <PlatformPreview
-            platform={selectedAccount.platform}
-            username={selectedAccount.username}
-            displayName={selectedAccount.displayName}
-            avatarUrl={selectedAccount.avatarUrl}
-            caption={caption}
-            mediaUrls={post.mediaUrls}
-            mediaType={post.mediaType}
-          />
+          {selectedAccounts.map((acc) => (
+            <div key={acc.id} className="space-y-1.5">
+              {selectedAccounts.length > 1 && (
+                <p className="text-xs font-medium text-zinc-500">
+                  {acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}
+                  {acc.username ? ` · @${acc.username}` : acc.displayName ? ` · ${acc.displayName}` : ""}
+                </p>
+              )}
+              <PlatformPreview
+                platform={acc.platform}
+                username={acc.username}
+                displayName={acc.displayName}
+                avatarUrl={acc.avatarUrl}
+                caption={caption}
+                mediaUrls={post.mediaUrls}
+                mediaType={post.mediaType}
+              />
+            </div>
+          ))}
         </div>
       )}
 
@@ -295,7 +311,7 @@ export function PostDetailEditor({
           <Button
             type="button"
             onClick={publishNow}
-            disabled={isWorking || isTerminal || !caption.trim() || !selectedAccount}
+            disabled={isWorking || isTerminal || !caption.trim() || selectedAccounts.length === 0}
             className="rounded-full px-5 shadow-lg shadow-rose-500/20"
           >
             {publishing ? (
@@ -303,14 +319,19 @@ export function PostDetailEditor({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Publishing…
               </>
+            ) : isTerminal ? (
+              "Already posted"
+            ) : selectedAccounts.length === 0 ? (
+              "Select an account above"
+            ) : selectedAccounts.length === 1 ? (
+              <>
+                <Send className="h-4 w-4" />
+                Post to {platformLabel} now
+              </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                {isTerminal
-                  ? "Already posted"
-                  : selectedAccount
-                  ? `Post to ${platformLabel} now`
-                  : "Select an account above"}
+                Post to {selectedAccounts.length} accounts now
               </>
             )}
           </Button>

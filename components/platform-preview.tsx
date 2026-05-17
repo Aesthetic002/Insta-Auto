@@ -258,13 +258,11 @@ function FacebookPreview({ displayName, avatarUrl, caption, mediaUrls, mediaType
         </svg>
       </div>
 
-      {caption && (
-        <div className="px-3 pb-3 text-[14px] leading-snug">
-          <TruncatedCaption text={caption} />
-        </div>
-      )}
+      <div className="px-3 pb-3 text-[14px] leading-snug">
+        <TruncatedCaption text={caption || "Your caption will appear here…"} />
+      </div>
 
-      <MediaBlock mediaUrls={mediaUrls} mediaType={mediaType} fixedAspect="16/9" />
+      <MediaBlock mediaUrls={mediaUrls} mediaType={mediaType} fixedAspect={mediaType === "VIDEO" ? "9/16" : "16/9"} />
 
       {/* Reaction count row */}
       <div className="flex items-center justify-between px-3 py-2 text-[12px] text-zinc-500 border-b border-zinc-100 dark:border-zinc-800">

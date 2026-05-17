@@ -130,8 +130,9 @@ model SocialAccount {
   connectedAt     DateTime  @default(now())
   disconnectedAt  DateTime?
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  posts Post[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts       Post[]
+  postTargets PostTarget[]
 
   @@unique([userId, platform, accountId])
   @@index([userId, platform])
@@ -238,9 +239,37 @@ model Post {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   socialAccount   SocialAccount?   @relation(fields: [socialAccountId], references: [id], onDelete: SetNull)
   approvalTokens  ApprovalToken[]
+  targets         PostTarget[]
 
   @@index([userId, status])
   @@index([status, scheduledAt])
+}
+
+// One publish target per social account for a post (multi-account publishing)
+enum TargetStatus {
+  PENDING      // waiting to be published
+  PUBLISHING   // currently in-flight
+  POSTED       // live on the platform
+  FAILED       // hit an error
+}
+
+model PostTarget {
+  id              String       @id @default(cuid())
+  postId          String
+  socialAccountId String
+  status          TargetStatus @default(PENDING)
+  platformPostId  String?
+  platformUrl     String?      @db.Text
+  errorMessage    String?      @db.Text
+  postedAt        DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, socialAccountId])
+  @@index([postId])
 }
 
 enum ApprovalAction {

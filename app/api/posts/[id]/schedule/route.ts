@@ -12,113 +12,80 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!session?.user?.id)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const { id } = await params;
 
-  const body = (await request.json()) as { scheduledAt?: string };
-  if (!body.scheduledAt) {
-    return NextResponse.json({ error: "scheduledAt_required" }, { status: 400 });
-  }
-  const scheduledAt = new Date(body.scheduledAt);
-  if (isNaN(scheduledAt.getTime())) {
-    return NextResponse.json({ error: "invalid_date" }, { status: 400 });
-  }
-  if (scheduledAt.getTime() < Date.now() - 60_000) {
-    return NextResponse.json(
-      { error: "past_date", message: "Pick a time in the future." },
-      { status: 400 }
-    );
-  }
+  const { id } = await params;
 
   const post = await db.post.findUnique({
     where: { id },
-    include: { user: true },
+    include: { socialAccount: true },
   });
   if (!post) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  // Only the creator can schedule.
-  if (!(await isCreatorOf(session.user.id, post.userId))) {
+  if (!(await isCreatorOf(session.user.id, post.userId)))
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  if (!post.caption)
     return NextResponse.json(
-      { error: "forbidden", message: "Only the creator can schedule." },
-      { status: 403 }
-    );
-  }
-  if (!post.caption) {
-    return NextResponse.json(
-      { error: "caption_required", message: "Add or generate a caption first." },
+      { error: "caption_required", message: "Generate or write a caption before scheduling." },
       { status: 400 }
     );
-  }
-  if (
-    post.status !== "DRAFT" &&
-    post.status !== "SCHEDULED" &&
-    post.status !== "PENDING_APPROVAL" &&
-    post.status !== "FAILED" &&
-    post.status !== "REJECTED"
-  ) {
-    return NextResponse.json(
-      { error: "wrong_state", message: `Cannot schedule from status ${post.status}` },
-      { status: 400 }
-    );
-  }
 
-  const prefs = await db.preferences.findUnique({
-    where: { userId: post.userId },
-  });
-  const mode = prefs?.approvalMode ?? "EMAIL";
+  const body = await request.json();
+  const scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
+  if (!scheduledAt || isNaN(scheduledAt.getTime()))
+    return NextResponse.json({ error: "invalid_date" }, { status: 400 });
 
-  if (mode === "AUTO") {
-    const updated = await db.post.update({
+  // Check user's approval mode preference
+  const prefs = await db.preferences.findUnique({ where: { userId: post.userId } });
+  const needsApproval = prefs?.approvalMode === "EMAIL";
+
+  if (needsApproval) {
+    const creator = await db.user.findUnique({ where: { id: post.userId } });
+
+    const appUrl = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
+    const approveTok = signApprovalToken({ postId: id, action: "approve" });
+    const rejectTok = signApprovalToken({ postId: id, action: "reject" });
+    const editTok = signApprovalToken({ postId: id, action: "edit" });
+
+    const approveUrl = `${appUrl}/approve/${approveTok}`;
+    const rejectUrl = `${appUrl}/approve/${rejectTok}`;
+    const editUrl = `${appUrl}/approve/${editTok}`;
+
+    await db.post.update({
       where: { id },
-      data: {
-        status: "SCHEDULED",
-        scheduledAt,
-        errorMessage: null,
-        retryCount: 0,
-      },
+      data: { scheduledAt, status: "PENDING_APPROVAL" },
     });
-    return NextResponse.json({ post: updated, requiresApproval: false });
-  }
 
-  const updated = await db.post.update({
-    where: { id },
-    data: {
-      status: "PENDING_APPROVAL",
-      scheduledAt,
-      errorMessage: null,
-      retryCount: 0,
-    },
-  });
-
-  if (mode === "EMAIL" && post.user.email) {
-    try {
-      const appUrl = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
-      const approveTok = signApprovalToken({ postId: id, action: "approve" });
-      const rejectTok = signApprovalToken({ postId: id, action: "reject" });
-      const editTok = signApprovalToken({ postId: id, action: "edit" });
+    if (creator?.email) {
       await sendEmail({
-        to: post.user.email,
-        subject: `Approve reel: ${post.outline.slice(0, 60)}`,
+        to: creator.email,
+        subject: `Approve your post: ${post.outline}`,
         html: approvalEmailHtml({
           appUrl,
-          recipientName: post.user.name,
+          recipientName: creator.name,
           thumbnailUrl: post.thumbnailUrl,
           outline: post.outline,
           caption: post.caption,
           scheduledAt,
-          approveUrl: `${appUrl}/approve/${approveTok}`,
-          rejectUrl: `${appUrl}/approve/${rejectTok}`,
-          editUrl: `${appUrl}/approve/${editTok}`,
+          approveUrl,
+          rejectUrl,
+          editUrl,
         }),
-      });
-    } catch (err) {
-      console.error("[schedule] approval email failed", err);
+      }).catch((err) => console.error("[schedule] email failed", err));
     }
+
+    return NextResponse.json({ requiresApproval: true });
   }
 
-  return NextResponse.json({ post: updated, requiresApproval: true, mode });
+  // No approval needed — go straight to SCHEDULED
+  await db.post.update({
+    where: { id },
+    data: { scheduledAt, status: "SCHEDULED" },
+  });
+
+  return NextResponse.json({ requiresApproval: false });
 }
 
 export async function DELETE(
@@ -126,20 +93,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!session?.user?.id)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+
   const { id } = await params;
 
   const post = await db.post.findUnique({ where: { id } });
   if (!post) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  if (!(await isCreatorOf(session.user.id, post.userId))) {
+  if (!(await isCreatorOf(session.user.id, post.userId)))
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
 
   await db.post.update({
     where: { id },
-    data: { status: "DRAFT", scheduledAt: null },
+    data: { scheduledAt: null, status: "DRAFT" },
   });
+
   return NextResponse.json({ ok: true });
 }

@@ -8,6 +8,7 @@ import { canEditCreatorWorkspace, isCreatorOf } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { PostDetailEditor } from "@/components/post-detail-editor";
 import { PostScheduleCard } from "@/components/post-schedule-card";
+import { PostTargetResults } from "@/components/post-target-results";
 import type { SocialAccountOption } from "@/components/social-account-picker";
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -31,6 +32,7 @@ export default async function PostDetailPage({
     include: {
       socialAccount: true,
       user: { select: { name: true, email: true } },
+      targets: { include: { socialAccount: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!post) notFound();
@@ -56,6 +58,9 @@ export default async function PostDetailPage({
     displayName: a.displayName,
     avatarUrl: a.avatarUrl,
   }));
+
+  // IDs of accounts already selected as targets
+  const selectedAccountIds = post.targets.map((t) => t.socialAccountId);
 
   const platformLabel =
     post.platform ? (PLATFORM_LABELS[post.platform] ?? post.platform) : null;
@@ -169,6 +174,7 @@ export default async function PostDetailPage({
               outline: post.outline,
               platform: (post.platform as SocialAccountOption["platform"]) ?? null,
               socialAccountId: post.socialAccountId,
+              selectedAccountIds,
               mediaType: post.mediaType as "VIDEO" | "PHOTO" | "CAROUSEL",
               mediaUrls: post.mediaUrls,
             }}
@@ -181,6 +187,23 @@ export default async function PostDetailPage({
               status={post.status}
               scheduledAt={post.scheduledAt?.toISOString() ?? null}
               hasCaption={!!post.caption}
+            />
+          )}
+          {post.targets.length > 0 && (
+            <PostTargetResults
+              targets={post.targets.map((t) => ({
+                id: t.id,
+                status: t.status as "PENDING" | "PUBLISHING" | "POSTED" | "FAILED",
+                platformPostId: t.platformPostId,
+                platformUrl: t.platformUrl,
+                errorMessage: t.errorMessage,
+                postedAt: t.postedAt,
+                socialAccount: {
+                  platform: t.socialAccount.platform,
+                  username: t.socialAccount.username,
+                  displayName: t.socialAccount.displayName,
+                },
+              }))}
             />
           )}
         </div>

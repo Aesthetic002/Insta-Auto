@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { isCreatorOf } from "@/lib/permissions";
-import { publishPost } from "@/lib/publish";
+import { publishPost, publishPostToTargets } from "@/lib/publish";
 
 export const maxDuration = 300;
 
@@ -19,7 +19,7 @@ export async function POST(
 
   const post = await db.post.findUnique({
     where: { id },
-    include: { socialAccount: true },
+    include: { socialAccount: true, targets: { include: { socialAccount: true } } },
   });
   if (!post) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -37,50 +37,60 @@ export async function POST(
     );
   }
 
-  if (!post.socialAccount) {
+  const hasTargets = post.targets.length > 0;
+
+  if (!hasTargets && !post.socialAccount) {
     return NextResponse.json(
-      { error: "no_account", message: "Select a social account to publish to." },
+      { error: "no_account", message: "Select at least one social account to publish to." },
       { status: 400 }
     );
   }
 
-  if (post.socialAccount.disconnectedAt) {
+  if (!hasTargets && post.socialAccount?.disconnectedAt) {
     return NextResponse.json(
       { error: "account_disconnected", message: "Reconnect this social account in Settings." },
       { status: 400 }
     );
   }
 
-  await db.post.update({
-    where: { id },
-    data: { status: "PUBLISHING", errorMessage: null },
-  });
+  await db.post.update({ where: { id }, data: { status: "PUBLISHING", errorMessage: null } });
 
   try {
-    const { platformPostId, platformUrl } = await publishPost(id);
-
-    const updated = await db.post.update({
-      where: { id },
-      data: {
-        status: "POSTED",
-        platformPostId,
-        platformUrl,
-        postedAt: new Date(),
-        // Keep legacy IG fields populated for Instagram posts
-        ...(post.platform === "INSTAGRAM" ? { igMediaId: platformPostId, igPermalink: platformUrl } : {}),
-      },
-    });
-    return NextResponse.json({ post: updated });
+    if (hasTargets) {
+      const results = await publishPostToTargets(id);
+      const anyFailed = results.some((r) => r.status === "failed");
+      const updated = await db.post.findUnique({
+        where: { id },
+        include: { targets: { include: { socialAccount: true } } },
+      });
+      if (anyFailed) {
+        return NextResponse.json(
+          { error: "partial_failure", message: "Some accounts failed to publish.", post: updated, results },
+          { status: 207 }
+        );
+      }
+      return NextResponse.json({ post: updated, results });
+    } else {
+      // Legacy single-account path
+      const { platformPostId, platformUrl } = await publishPost(id);
+      const updated = await db.post.update({
+        where: { id },
+        data: {
+          status: "POSTED",
+          platformPostId,
+          platformUrl,
+          postedAt: new Date(),
+          ...(post.platform === "INSTAGRAM" ? { igMediaId: platformPostId, igPermalink: platformUrl } : {}),
+        },
+      });
+      return NextResponse.json({ post: updated });
+    }
   } catch (err) {
     console.error("[publish] failed", err);
     const message = err instanceof Error ? err.message : String(err);
     const updated = await db.post.update({
       where: { id },
-      data: {
-        status: "FAILED",
-        retryCount: { increment: 1 },
-        errorMessage: message.slice(0, 1000),
-      },
+      data: { status: "FAILED", retryCount: { increment: 1 }, errorMessage: message.slice(0, 1000) },
     });
     return NextResponse.json(
       { error: "publish_failed", message, post: updated },

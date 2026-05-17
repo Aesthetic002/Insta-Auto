@@ -24,14 +24,8 @@ export async function GET(request: Request) {
   const error = url.searchParams.get("error");
   const errorReason = url.searchParams.get("error_reason");
 
-  if (error) {
-    return redirectToSettings(request, {
-      error: errorReason ?? error,
-    });
-  }
-  if (!code || !state) {
-    return redirectToSettings(request, { error: "missing_code_or_state" });
-  }
+  if (error) return redirectToSettings(request, { error: errorReason ?? error });
+  if (!code || !state) return redirectToSettings(request, { error: "missing_code_or_state" });
 
   const cookieStore = await cookies();
   const expectedState = cookieStore.get(STATE_COOKIE)?.value;
@@ -54,32 +48,35 @@ export async function GET(request: Request) {
       return redirectToSettings(request, { error: "no_ig_accounts" });
     }
 
-    // For now: persist all discovered accounts (most users have one).
     const expiresAt = long.expiresIn
       ? new Date(Date.now() + long.expiresIn * 1000)
       : null;
 
     for (const acc of accounts) {
-      await db.igAccount.upsert({
+      await db.socialAccount.upsert({
         where: {
-          userId_igBusinessId: {
+          userId_platform_accountId: {
             userId: session.user.id,
-            igBusinessId: acc.igBusinessId,
+            platform: "INSTAGRAM",
+            accountId: acc.igBusinessId,
           },
         },
         create: {
           userId: session.user.id,
-          igBusinessId: acc.igBusinessId,
+          platform: "INSTAGRAM",
+          accountId: acc.igBusinessId,
           username: acc.username,
+          displayName: acc.username ?? acc.pageName,
           pageId: acc.pageId,
-          pageAccessToken: encrypt(acc.pageAccessToken),
+          accessToken: encrypt(acc.pageAccessToken),
           tokenExpiresAt: expiresAt,
           disconnectedAt: null,
         },
         update: {
           username: acc.username,
+          displayName: acc.username ?? acc.pageName,
           pageId: acc.pageId,
-          pageAccessToken: encrypt(acc.pageAccessToken),
+          accessToken: encrypt(acc.pageAccessToken),
           tokenExpiresAt: expiresAt,
           disconnectedAt: null,
         },

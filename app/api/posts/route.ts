@@ -38,16 +38,27 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { videoUrl, thumbnailUrl, outline } = body as {
-    videoUrl?: string;
+  const {
+    mediaUrl,
+    mediaUrls,
+    thumbnailUrl,
+    outline,
+    mediaType = "VIDEO",
+  } = body as {
+    mediaUrl?: string;
+    mediaUrls?: string[];
     thumbnailUrl?: string;
     outline?: string;
+    mediaType?: "VIDEO" | "PHOTO" | "CAROUSEL";
   };
-  if (!videoUrl || typeof videoUrl !== "string") {
-    return NextResponse.json({ error: "videoUrl required" }, { status: 400 });
-  }
+
   if (!outline || typeof outline !== "string" || outline.trim().length < 3) {
     return NextResponse.json({ error: "outline required" }, { status: 400 });
+  }
+
+  const allUrls = mediaUrls?.length ? mediaUrls : mediaUrl ? [mediaUrl] : [];
+  if (allUrls.length === 0) {
+    return NextResponse.json({ error: "at least one media URL required" }, { status: 400 });
   }
 
   const cookieStore = await cookies();
@@ -69,28 +80,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const igAccount = await db.igAccount.findFirst({
-    where: { userId: ctx.creatorId, disconnectedAt: null },
-    orderBy: { connectedAt: "desc" },
-  });
-  if (!igAccount) {
-    return NextResponse.json(
-      {
-        error: "no_ig_account",
-        message: ctx.isOwn
-          ? "Connect an Instagram account first."
-          : "This creator hasn't connected an Instagram account yet.",
-      },
-      { status: 400 }
-    );
-  }
-
   const post = await db.post.create({
     data: {
       userId: ctx.creatorId,
-      igAccountId: igAccount.id,
       source: "UPLOAD",
-      videoUrl,
+      mediaType,
+      mediaUrl: allUrls[0],
+      mediaUrls: allUrls,
       thumbnailUrl: thumbnailUrl ?? null,
       outline: outline.trim(),
       status: "DRAFT",

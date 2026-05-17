@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto/encryption";
-import { publishReel } from "@/lib/instagram/publish";
+import { publishPost } from "@/lib/publish";
 
-export const maxDuration = 300; // up to 5 minutes per invocation
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-const MAX_PER_RUN = 5; // pick up at most 5 due posts per minute
+const MAX_PER_RUN = 5;
 const MAX_RETRIES = 3;
 
 export async function GET(request: Request) {
-  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>; allow ?secret=... for manual.
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const now = new Date();
 
-  // Atomically claim due posts: transition SCHEDULED -> PUBLISHING for ones whose time has come.
-  // We do it one-by-one with optimistic locks (updateMany returns count) to avoid double-publish.
   const due = await db.post.findMany({
     where: {
       status: "SCHEDULED",
@@ -28,7 +24,7 @@ export async function GET(request: Request) {
     },
     orderBy: { scheduledAt: "asc" },
     take: MAX_PER_RUN,
-    include: { igAccount: true },
+    include: { socialAccount: true },
   });
 
   const results: Array<{
@@ -38,7 +34,6 @@ export async function GET(request: Request) {
   }> = [];
 
   for (const post of due) {
-    // Try to claim by bumping status — only succeeds if still SCHEDULED.
     const claimed = await db.post.updateMany({
       where: { id: post.id, status: "SCHEDULED" },
       data: { status: "PUBLISHING", errorMessage: null },
@@ -48,7 +43,7 @@ export async function GET(request: Request) {
       continue;
     }
 
-    if (!post.caption || post.igAccount.disconnectedAt) {
+    if (!post.caption || !post.socialAccount || post.socialAccount.disconnectedAt) {
       await db.post.update({
         where: { id: post.id },
         data: {
@@ -56,33 +51,27 @@ export async function GET(request: Request) {
           retryCount: { increment: 1 },
           errorMessage: !post.caption
             ? "Caption missing at publish time"
-            : "IG account is disconnected",
+            : !post.socialAccount
+            ? "No social account selected"
+            : "Social account is disconnected",
         },
       });
-      results.push({
-        id: post.id,
-        status: "failed",
-        error: !post.caption ? "no_caption" : "ig_disconnected",
-      });
+      results.push({ id: post.id, status: "failed", error: "pre_check_failed" });
       continue;
     }
 
     try {
-      const pageToken = decrypt(post.igAccount.pageAccessToken);
-      const { containerId, mediaId, permalink } = await publishReel({
-        igBusinessId: post.igAccount.igBusinessId,
-        pageAccessToken: pageToken,
-        videoUrl: post.videoUrl,
-        caption: post.caption,
-      });
+      const { platformPostId, platformUrl } = await publishPost(post.id);
       await db.post.update({
         where: { id: post.id },
         data: {
           status: "POSTED",
-          igContainerId: containerId,
-          igMediaId: mediaId,
-          igPermalink: permalink,
+          platformPostId,
+          platformUrl,
           postedAt: new Date(),
+          ...(post.platform === "INSTAGRAM"
+            ? { igMediaId: platformPostId, igPermalink: platformUrl }
+            : {}),
         },
       });
       results.push({ id: post.id, status: "posted" });
@@ -100,10 +89,7 @@ export async function GET(request: Request) {
     }
   }
 
-  console.log(
-    `[cron/publish] processed ${results.length} post(s) at ${now.toISOString()}`,
-    results
-  );
+  console.log(`[cron/publish] processed ${results.length} post(s) at ${now.toISOString()}`, results);
   return NextResponse.json({ at: now.toISOString(), results });
 }
 
@@ -113,6 +99,5 @@ function isAuthorized(request: Request): boolean {
   const auth = request.headers.get("authorization");
   if (auth === `Bearer ${secret}`) return true;
   const url = new URL(request.url);
-  if (url.searchParams.get("secret") === secret) return true;
-  return false;
+  return url.searchParams.get("secret") === secret;
 }

@@ -40,7 +40,7 @@ export default async function ApprovePage({
   const { pid, act } = result.payload;
   const post = await db.post.findUnique({
     where: { id: pid },
-    include: { igAccount: true },
+    include: { socialAccount: true },
   });
 
   if (!post) {
@@ -77,11 +77,11 @@ export default async function ApprovePage({
           <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500" />
           <h1 className="mt-3 text-xl font-semibold">Approved</h1>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            This reel will publish to{" "}
+            This post will publish to{" "}
             <strong>
-              {post.igAccount.username
-                ? `@${post.igAccount.username}`
-                : "your Instagram"}
+              {post.socialAccount?.username
+                ? `@${post.socialAccount.username}`
+                : post.socialAccount?.displayName ?? "your account"}
             </strong>
             {post.scheduledAt
               ? ` at ${post.scheduledAt.toLocaleString(undefined, {
@@ -139,7 +139,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-rose-500 text-white shadow-sm shadow-rose-500/30">
           <Sparkles className="h-4 w-4" />
         </div>
-        Reels Bot
+        Anvaya
       </div>
       {children}
     </main>

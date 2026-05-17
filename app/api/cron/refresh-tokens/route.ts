@@ -7,8 +7,7 @@ import { refreshAccessToken } from "@/lib/instagram/oauth";
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
-// Refresh any IG account tokens within 7 days of expiry. Meta long-lived
-// tokens last 60 days; refreshing within the last 7 buys another 60.
+// Refresh Meta tokens (Instagram + Facebook) within 7 days of expiry.
 const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
@@ -17,30 +16,26 @@ export async function GET(request: Request) {
   }
 
   const cutoff = new Date(Date.now() + REFRESH_WINDOW_MS);
-  const due = await db.igAccount.findMany({
+  // Only Meta platforms use the refresh flow; LinkedIn/Pinterest have their own rotation
+  const due = await db.socialAccount.findMany({
     where: {
       disconnectedAt: null,
+      platform: { in: ["INSTAGRAM", "FACEBOOK"] },
       OR: [{ tokenExpiresAt: { lte: cutoff } }, { tokenExpiresAt: null }],
     },
   });
 
-  const results: Array<{ id: string; status: "refreshed" | "failed"; error?: string }> =
-    [];
+  const results: Array<{ id: string; status: "refreshed" | "failed"; error?: string }> = [];
 
   for (const acc of due) {
     try {
-      const current = decrypt(acc.pageAccessToken);
+      const current = decrypt(acc.accessToken);
       const { accessToken, expiresIn } = await refreshAccessToken(current);
-      const expiresAt = expiresIn
-        ? new Date(Date.now() + expiresIn * 1000)
-        : null;
+      const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null;
 
-      await db.igAccount.update({
+      await db.socialAccount.update({
         where: { id: acc.id },
-        data: {
-          pageAccessToken: encrypt(accessToken),
-          tokenExpiresAt: expiresAt,
-        },
+        data: { accessToken: encrypt(accessToken), tokenExpiresAt: expiresAt },
       });
       results.push({ id: acc.id, status: "refreshed" });
     } catch (err) {
@@ -50,10 +45,7 @@ export async function GET(request: Request) {
     }
   }
 
-  console.log(
-    `[cron/refresh-tokens] processed ${results.length} account(s)`,
-    results
-  );
+  console.log(`[cron/refresh-tokens] processed ${results.length} account(s)`, results);
   return NextResponse.json({ at: new Date().toISOString(), results });
 }
 

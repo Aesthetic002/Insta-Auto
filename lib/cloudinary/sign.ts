@@ -15,20 +15,31 @@ export interface SignedUpload {
 }
 
 export function signVideoUpload(opts: {
-  /** Public ID (file name without extension). Generate with crypto.randomUUID() upstream. */
   publicId: string;
-  /** Cloudinary folder. Defaults to "reels". */
   folder?: string;
+}): SignedUpload {
+  return signUpload({ ...opts, resourceType: "video" });
+}
+
+export function signImageUpload(opts: {
+  publicId: string;
+  folder?: string;
+}): SignedUpload {
+  return signUpload({ ...opts, resourceType: "image" });
+}
+
+function signUpload(opts: {
+  publicId: string;
+  folder?: string;
+  resourceType: "video" | "image";
 }): SignedUpload {
   const cloudName = required("CLOUDINARY_CLOUD_NAME");
   const apiKey = required("CLOUDINARY_API_KEY");
   const apiSecret = required("CLOUDINARY_API_SECRET");
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = opts.folder ?? "reels";
+  const folder = opts.folder ?? (opts.resourceType === "image" ? "photos" : "reels");
 
-  // Params that go into the signature MUST match what the browser sends.
-  // Keep this list and the browser FormData strictly in sync.
   const params: Record<string, string | number> = {
     folder,
     public_id: opts.publicId,
@@ -44,7 +55,7 @@ export function signVideoUpload(opts: {
     folder,
     publicId: opts.publicId,
     signature,
-    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/${opts.resourceType}/upload`,
   };
 }
 

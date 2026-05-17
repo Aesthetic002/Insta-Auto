@@ -26,6 +26,8 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (typeof body.caption === "string") data.caption = body.caption;
   if (typeof body.outline === "string") data.outline = body.outline.trim();
+  if (typeof body.socialAccountId === "string") data.socialAccountId = body.socialAccountId;
+  if (typeof body.platform === "string") data.platform = body.platform;
 
   const updated = await db.post.update({ where: { id }, data });
   return NextResponse.json({ post: updated });

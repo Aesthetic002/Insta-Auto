@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
 import { resolveActiveCreator } from "@/lib/permissions";
 import { PostUploader } from "@/components/post-uploader";
 import { buttonVariants } from "@/components/ui/button";
@@ -27,48 +26,17 @@ export default async function NewPostPage() {
     );
   }
 
-  const igCount = await db.igAccount.count({
-    where: { userId: ctx.creatorId, disconnectedAt: null },
-  });
-
   return (
     <Wrap>
       <h1 className="text-3xl font-semibold tracking-tight">New post</h1>
       <p className="mt-1 text-sm text-zinc-500">
         {ctx.isOwn
-          ? "Upload a video and describe what it's about. We'll save it as a draft you can schedule later."
+          ? "Upload a video or photos and describe what it's about. We'll save it as a draft you can review and schedule later."
           : "Upload to the creator's draft queue. They'll review, schedule and publish."}
       </p>
-
-      {igCount === 0 ? (
-        <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-900/40 dark:bg-amber-950/30">
-          <h2 className="font-semibold text-amber-900 dark:text-amber-200">
-            {ctx.isOwn
-              ? "Connect an Instagram account first"
-              : "This creator hasn't connected Instagram yet"}
-          </h2>
-          <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-            {ctx.isOwn
-              ? "You need at least one connected IG Business account before you can save posts."
-              : "You can still upload drafts, but they can't be scheduled until the creator connects."}
-          </p>
-          {ctx.isOwn && (
-            <Link
-              href="/settings"
-              className={cn(
-                buttonVariants({ size: "default" }),
-                "mt-4 rounded-full px-5"
-              )}
-            >
-              Open settings
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className="mt-8">
-          <PostUploader />
-        </div>
-      )}
+      <div className="mt-8">
+        <PostUploader />
+      </div>
     </Wrap>
   );
 }

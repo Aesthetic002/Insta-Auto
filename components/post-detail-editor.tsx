@@ -15,19 +15,31 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  SocialAccountPicker,
+  type SocialAccountOption,
+  type Platform,
+} from "@/components/social-account-picker";
+import { PlatformPreview } from "@/components/platform-preview";
 
 interface PostShape {
   id: string;
   status: string;
   caption: string | null;
   outline: string;
+  platform: Platform | null;
+  socialAccountId: string | null;
+  mediaType: "VIDEO" | "PHOTO" | "CAROUSEL";
+  mediaUrls: string[];
 }
 
 export function PostDetailEditor({
   post,
+  accounts,
   canPublish = true,
 }: {
   post: PostShape;
+  accounts: SocialAccountOption[];
   canPublish?: boolean;
 }) {
   const router = useRouter();
@@ -38,7 +50,16 @@ export function PostDetailEditor({
   const [publishing, setPublishing] = useState(false);
   const [deleting, startDelete] = useTransition();
 
+  // Track the selected account so the preview updates instantly
+  const initialAccount =
+    accounts.find((a) => a.id === post.socialAccountId) ?? null;
+  const [selectedAccount, setSelectedAccount] =
+    useState<SocialAccountOption | null>(initialAccount);
+
   const isTerminal = post.status === "POSTED";
+  const platformLabel = selectedAccount
+    ? { INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", PINTEREST: "Pinterest" }[selectedAccount.platform]
+    : "your platform";
 
   const generate = async () => {
     setError(null);
@@ -92,29 +113,27 @@ export function PostDetailEditor({
       toast.warning(msg);
       return;
     }
-    if (
-      !confirm(
-        "Publish this reel to Instagram now? This cannot be undone."
-      )
-    )
+    if (!selectedAccount) {
+      const msg = "Pick a social account to publish to.";
+      setError(msg);
+      toast.warning(msg);
       return;
+    }
+    if (!confirm(`Publish this post to ${platformLabel} now? This cannot be undone.`)) return;
+
     setError(null);
     setPublishing(true);
-    const tid = toast.loading("Publishing to Instagram… (can take up to a minute)");
+    const tid = toast.loading(`Publishing to ${platformLabel}… (can take up to a minute)`);
     try {
       await fetch(`/api/posts/${post.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caption }),
       });
-      const res = await fetch(`/api/posts/${post.id}/publish`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/posts/${post.id}/publish`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message ?? json.error ?? "Publish failed");
-      }
-      toast.success("Posted to Instagram 🎉", { id: tid });
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Publish failed");
+      toast.success(`Posted to ${platformLabel}!`, { id: tid });
       router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -130,14 +149,10 @@ export function PostDetailEditor({
     setPublishing(true);
     const tid = toast.loading("Retrying publish…");
     try {
-      const res = await fetch(`/api/posts/${post.id}/publish`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/posts/${post.id}/publish`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message ?? json.error ?? "Retry failed");
-      }
-      toast.success("Posted to Instagram 🎉", { id: tid });
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Retry failed");
+      toast.success(`Posted to ${platformLabel}!`, { id: tid });
       router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -149,7 +164,7 @@ export function PostDetailEditor({
   };
 
   const deletePost = () => {
-    if (!confirm("Delete this post? The video stays in Cloudinary.")) return;
+    if (!confirm("Delete this post? Media files stay in Cloudinary.")) return;
     startDelete(async () => {
       const res = await fetch(`/api/posts/${post.id}`, { method: "DELETE" });
       if (res.ok) {
@@ -164,15 +179,13 @@ export function PostDetailEditor({
 
   return (
     <div className="space-y-6">
+      {/* Outline */}
       <div>
-        <Label className="text-xs uppercase tracking-wide text-zinc-500">
-          Outline
-        </Label>
-        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-          {post.outline}
-        </p>
+        <Label className="text-xs uppercase tracking-wide text-zinc-500">Outline</Label>
+        <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{post.outline}</p>
       </div>
 
+      {/* Caption */}
       <div className="space-y-2">
         <div className="flex items-end justify-between gap-2">
           <Label htmlFor="caption">Caption</Label>
@@ -213,12 +226,41 @@ export function PostDetailEditor({
         </div>
       </div>
 
+      {/* Account picker — shown to creators only */}
+      {canPublish && (
+        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+          <SocialAccountPicker
+            postId={post.id}
+            accounts={accounts}
+            selectedAccountId={selectedAccount?.id ?? null}
+            onSelect={(acc) => setSelectedAccount(acc)}
+          />
+        </div>
+      )}
+
+      {/* Live platform preview */}
+      {selectedAccount && (
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-zinc-500">Preview</Label>
+          <PlatformPreview
+            platform={selectedAccount.platform}
+            username={selectedAccount.username}
+            displayName={selectedAccount.displayName}
+            avatarUrl={selectedAccount.avatarUrl}
+            caption={caption}
+            mediaUrls={post.mediaUrls}
+            mediaType={post.mediaType}
+          />
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
           {error}
         </div>
       )}
 
+      {/* Actions */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200/70 pt-6 dark:border-zinc-800/70">
         <Button
           type="button"
@@ -253,7 +295,7 @@ export function PostDetailEditor({
           <Button
             type="button"
             onClick={publishNow}
-            disabled={isWorking || isTerminal || !caption.trim()}
+            disabled={isWorking || isTerminal || !caption.trim() || !selectedAccount}
             className="rounded-full px-5 shadow-lg shadow-rose-500/20"
           >
             {publishing ? (
@@ -264,7 +306,11 @@ export function PostDetailEditor({
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                {isTerminal ? "Already posted" : "Post to Instagram now"}
+                {isTerminal
+                  ? "Already posted"
+                  : selectedAccount
+                  ? `Post to ${platformLabel} now`
+                  : "Select an account above"}
               </>
             )}
           </Button>

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { decrypt } from "@/lib/crypto/encryption";
 import { isCreatorOf } from "@/lib/permissions";
-import { publishReel } from "@/lib/instagram/publish";
+import { publishPost } from "@/lib/publish";
 
 export const maxDuration = 300;
 
@@ -20,13 +19,15 @@ export async function POST(
 
   const post = await db.post.findUnique({
     where: { id },
-    include: { igAccount: true },
+    include: { socialAccount: true },
   });
   if (!post) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  // Only the creator (not editors) can manually publish.
   if (!(await isCreatorOf(session.user.id, post.userId))) {
-    return NextResponse.json({ error: "forbidden", message: "Only the creator can publish." }, { status: 403 });
+    return NextResponse.json(
+      { error: "forbidden", message: "Only the creator can publish." },
+      { status: 403 }
+    );
   }
 
   if (!post.caption) {
@@ -35,9 +36,17 @@ export async function POST(
       { status: 400 }
     );
   }
-  if (post.igAccount.disconnectedAt) {
+
+  if (!post.socialAccount) {
     return NextResponse.json(
-      { error: "ig_disconnected", message: "Reconnect this Instagram account." },
+      { error: "no_account", message: "Select a social account to publish to." },
+      { status: 400 }
+    );
+  }
+
+  if (post.socialAccount.disconnectedAt) {
+    return NextResponse.json(
+      { error: "account_disconnected", message: "Reconnect this social account in Settings." },
       { status: 400 }
     );
   }
@@ -48,22 +57,17 @@ export async function POST(
   });
 
   try {
-    const pageToken = decrypt(post.igAccount.pageAccessToken);
-    const { containerId, mediaId, permalink } = await publishReel({
-      igBusinessId: post.igAccount.igBusinessId,
-      pageAccessToken: pageToken,
-      videoUrl: post.videoUrl,
-      caption: post.caption,
-    });
+    const { platformPostId, platformUrl } = await publishPost(id);
 
     const updated = await db.post.update({
       where: { id },
       data: {
         status: "POSTED",
-        igContainerId: containerId,
-        igMediaId: mediaId,
-        igPermalink: permalink,
+        platformPostId,
+        platformUrl,
         postedAt: new Date(),
+        // Keep legacy IG fields populated for Instagram posts
+        ...(post.platform === "INSTAGRAM" ? { igMediaId: platformPostId, igPermalink: platformUrl } : {}),
       },
     });
     return NextResponse.json({ post: updated });

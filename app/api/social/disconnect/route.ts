@@ -15,7 +15,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 });
   }
 
-  // Legacy route kept for backward compat; new UI uses /api/social/disconnect
   await db.socialAccount.updateMany({
     where: { id, userId: session.user.id },
     data: { disconnectedAt: new Date() },

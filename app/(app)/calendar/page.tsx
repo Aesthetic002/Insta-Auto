@@ -46,7 +46,7 @@ export default async function CalendarPage({
       ],
     },
     orderBy: [{ scheduledAt: "asc" }, { postedAt: "asc" }],
-    include: { igAccount: true },
+    include: { socialAccount: true },
   });
 
   const byDay = new Map<string, typeof posts>();

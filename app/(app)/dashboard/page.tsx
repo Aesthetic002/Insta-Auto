@@ -17,6 +17,7 @@ import { db } from "@/lib/db";
 import { resolveActiveCreator } from "@/lib/permissions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LocalTime } from "@/components/local-time";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -277,9 +278,14 @@ function PendingApprovals({
                   {p.outline}
                 </div>
                 <div className="mt-0.5 text-xs text-zinc-500">
-                  {p.scheduledAt
-                    ? `Scheduled for ${p.scheduledAt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
-                    : "No time set"}
+                  {p.scheduledAt ? (
+                    <>
+                      Scheduled for{" "}
+                      <LocalTime date={p.scheduledAt.toISOString()} dateStyle="medium" timeStyle="short" />
+                    </>
+                  ) : (
+                    "No time set"
+                  )}
                 </div>
               </div>
               <span className="flex items-center gap-1 text-xs font-medium text-fuchsia-600 dark:text-fuchsia-400">

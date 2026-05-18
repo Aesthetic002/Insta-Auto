@@ -84,6 +84,8 @@ export async function publishToFacebook(
 }
 
 // Fetch the public permalink for any FB object (post, video, photo).
+// Meta returns relative paths like "/reel/123/" for some object types — prefix
+// those with the Facebook origin so they're usable as full URLs.
 async function fetchPermalink(objectId: string, token: string): Promise<string | null> {
   try {
     const res = await fetch(
@@ -91,7 +93,10 @@ async function fetchPermalink(objectId: string, token: string): Promise<string |
       { cache: "no-store" }
     );
     const json = await res.json();
-    return (json.permalink_url as string) ?? null;
+    const raw = json.permalink_url as string | undefined;
+    if (!raw) return null;
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    return `https://www.facebook.com${raw.startsWith("/") ? "" : "/"}${raw}`;
   } catch {
     return null;
   }

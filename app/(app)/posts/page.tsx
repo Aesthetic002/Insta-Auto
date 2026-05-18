@@ -9,6 +9,7 @@ import { resolveActiveCreator } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LocalTime } from "@/components/local-time";
 
 const STATUS_META: Record<PostStatus, { label: string; className: string }> = {
   DRAFT:            { label: "Draft",            className: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700" },
@@ -126,9 +127,10 @@ export default async function PostsPage() {
                     <div className="mt-3 flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500">
                       <span className="truncate">{accountLabel}</span>
                       <span className="shrink-0">
-                        {post.scheduledAt
-                          ? new Date(post.scheduledAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-                          : new Date(post.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        <LocalTime
+                          date={(post.scheduledAt ?? post.createdAt).toISOString()}
+                          options={{ month: "short", day: "numeric" }}
+                        />
                       </span>
                     </div>
                   </div>

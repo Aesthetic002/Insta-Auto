@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, RotateCcw, Wand2, X } from "lucide-react";
 
@@ -31,9 +31,72 @@ export function ImageEditor({ postId, mediaUrls, onClose, onSaved }: Props) {
   const [edits, setEdits] = useState<ImageEdits>(DEFAULT_EDITS);
   const [saving, setSaving] = useState(false);
 
+  // Live preview interaction state
+  const previewBoxRef = useRef<HTMLDivElement>(null);
+  const [boxSize, setBoxSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [dragging, setDragging] = useState(false);
+
   // Always edit from the ORIGINAL asset so transforms don't stack.
   const base = useMemo(() => originalUrl(urls[activeIndex]), [urls, activeIndex]);
+  // Full preview (text baked in) — used for Apply/Save.
   const preview = useMemo(() => buildEditedUrl(base, edits), [base, edits]);
+  // Preview without the text layer — the base for the interactive HTML overlay,
+  // so dragging the text is instant and doesn't re-fetch from Cloudinary.
+  const previewNoText = useMemo(
+    () => buildEditedUrl(base, { ...edits, text: null }),
+    [base, edits]
+  );
+
+  // ── Drag to move text ───────────────────────────────────────────────────────
+  const startDragText = (e: React.PointerEvent) => {
+    // Ignore if the resize handle initiated it (handled separately).
+    if ((e.target as HTMLElement).dataset.resize) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+    const box = previewBoxRef.current?.getBoundingClientRect();
+    if (!box) return;
+
+    const onMove = (ev: PointerEvent) => {
+      const x = (ev.clientX - box.left) / box.width;
+      const y = (ev.clientY - box.top) / box.height;
+      setEdits((prev) => ({
+        ...prev,
+        textX: Math.min(1, Math.max(0, x)),
+        textY: Math.min(1, Math.max(0, y)),
+      }));
+    };
+    const onUp = () => {
+      setDragging(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  // ── Drag handle to resize text ────────────────────────────────────────────────
+  const startResizeText = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const box = previewBoxRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const startSize = edits.textSize;
+    const startY = e.clientY;
+
+    const onMove = (ev: PointerEvent) => {
+      // Dragging down/right grows the text; scale by box height for stability.
+      const deltaFrac = (ev.clientY - startY) / box.height;
+      const next = Math.min(0.25, Math.max(0.02, startSize + deltaFrac * 0.5));
+      setEdits((prev) => ({ ...prev, textSize: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   const applyToCurrent = () => {
     setUrls((prev) => {
@@ -104,12 +167,74 @@ export function ImageEditor({ postId, mediaUrls, onClose, onSaved }: Props) {
         <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[1fr_300px]">
           {/* Preview */}
           <div className="flex flex-col items-center justify-center gap-3 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-900">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="preview"
-              className="max-h-[50vh] max-w-full rounded-lg object-contain shadow-md"
-            />
+            <div
+              ref={previewBoxRef}
+              className="relative max-h-[50vh] max-w-full overflow-hidden rounded-lg shadow-md"
+            >
+              {/* Base image WITHOUT the text layer — text is an interactive overlay */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewNoText}
+                alt="preview"
+                className="block max-h-[50vh] max-w-full object-contain"
+                draggable={false}
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setBoxSize({ w: img.clientWidth, h: img.clientHeight });
+                }}
+              />
+
+              {/* Draggable + resizable text overlay */}
+              {edits.text && edits.text.trim() && boxSize.w > 0 && (
+                <div
+                  onPointerDown={startDragText}
+                  style={{
+                    position: "absolute",
+                    // Top-left anchor to match Cloudinary's g_north_west placement.
+                    left: `${edits.textX * 100}%`,
+                    top: `${edits.textY * 100}%`,
+                    color: `#${edits.textColor}`,
+                    fontFamily: "Arial, sans-serif",
+                    fontWeight: 700,
+                    fontSize: `${edits.textSize * boxSize.w}px`,
+                    lineHeight: 1.1,
+                    whiteSpace: "nowrap",
+                    cursor: dragging ? "grabbing" : "grab",
+                    userSelect: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                    padding: "2px 6px",
+                    border: "1px dashed rgba(255,255,255,0.7)",
+                    borderRadius: 4,
+                  }}
+                >
+                  {edits.text}
+                  {/* Resize handle (bottom-right) */}
+                  <span
+                    data-resize="1"
+                    onPointerDown={startResizeText}
+                    style={{
+                      position: "absolute",
+                      right: -7,
+                      bottom: -7,
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: "#d946ef",
+                      border: "2px solid white",
+                      cursor: "nwse-resize",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {edits.text && edits.text.trim() && (
+              <p className="text-[11px] text-zinc-400">
+                Drag the text to move it · drag the pink dot to resize
+              </p>
+            )}
+
             {urls.length > 1 && (
               <div className="flex gap-2">
                 {urls.map((u, i) => (
@@ -200,30 +325,27 @@ export function ImageEditor({ postId, mediaUrls, onClose, onSaved }: Props) {
                 className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
               {edits.text && (
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {(["north", "center", "south"] as const).map((pos) => (
-                      <button
-                        key={pos}
-                        type="button"
-                        onClick={() => setEdits((e) => ({ ...e, textPosition: pos }))}
-                        className={cn(
-                          "rounded-md border px-2 py-1 text-[10px] capitalize",
-                          edits.textPosition === pos
-                            ? "border-fuchsia-500 text-fuchsia-600"
-                            : "border-zinc-200 text-zinc-500 dark:border-zinc-700"
-                        )}
-                      >
-                        {pos === "north" ? "Top" : pos === "south" ? "Bottom" : "Center"}
-                      </button>
-                    ))}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">Color</span>
+                    <input
+                      type="color"
+                      value={`#${edits.textColor}`}
+                      onChange={(e) => setEdits((prev) => ({ ...prev, textColor: e.target.value.slice(1) }))}
+                      className="h-7 w-9 cursor-pointer rounded border border-zinc-200 dark:border-zinc-700"
+                    />
                   </div>
-                  <input
-                    type="color"
-                    value={`#${edits.textColor}`}
-                    onChange={(e) => setEdits((prev) => ({ ...prev, textColor: e.target.value.slice(1) }))}
-                    className="h-7 w-9 cursor-pointer rounded border border-zinc-200 dark:border-zinc-700"
+                  <Slider
+                    label="Size"
+                    min={2}
+                    max={25}
+                    value={Math.round(edits.textSize * 100)}
+                    onChange={(v) => setEdits((prev) => ({ ...prev, textSize: v / 100 }))}
+                    showSign={false}
                   />
+                  <p className="text-[11px] text-zinc-400">
+                    Drag the text on the image to position it, or drag the pink dot to resize.
+                  </p>
                 </div>
               )}
             </div>
@@ -263,21 +385,27 @@ function Slider({
   label,
   value,
   onChange,
+  min = -50,
+  max = 50,
+  showSign = true,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  showSign?: boolean;
 }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs text-zinc-500">
         <span>{label}</span>
-        <span className="tabular-nums">{value > 0 ? `+${value}` : value}</span>
+        <span className="tabular-nums">{showSign && value > 0 ? `+${value}` : value}</span>
       </div>
       <input
         type="range"
-        min={-50}
-        max={50}
+        min={min}
+        max={max}
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}

@@ -17,7 +17,12 @@ export interface ImageEdits {
   filter: string | null; // art filter name e.g. "al_dente", or "grayscale", "sepia"
   text: string | null; // overlay text
   textColor: string; // hex without # e.g. "ffffff"
-  textPosition: "north" | "south" | "center";
+  // Free positioning (Instagram-story style). Normalized 0..1 relative to the
+  // rendered image box; (textX, textY) is the CENTER of the text.
+  textX: number; // 0..1
+  textY: number; // 0..1
+  // Font size as a fraction of image width (0.02..0.25). Scales with any output size.
+  textSize: number;
 }
 
 export const DEFAULT_EDITS: ImageEdits = {
@@ -28,8 +33,15 @@ export const DEFAULT_EDITS: ImageEdits = {
   filter: null,
   text: null,
   textColor: "ffffff",
-  textPosition: "south",
+  textX: 0.25,
+  textY: 0.8,
+  textSize: 0.06,
 };
+
+// Reference width used to convert the normalized font fraction into a Cloudinary
+// font size. Cloudinary scales the whole transform to the actual image, so this
+// just needs to be a stable basis.
+const TEXT_REF_WIDTH = 1000;
 
 const RATIO_DIMS: Record<Exclude<CropRatio, "original">, string> = {
   "1:1": "ar_1:1,c_fill,g_auto",
@@ -45,6 +57,10 @@ const ART_FILTERS = new Set([
   "peacock", "primavera", "quartz", "red_rock", "refresh", "sizzle",
   "sonnet", "ukulele", "zorro",
 ]);
+
+function clamp01(n: number): number {
+  return Math.min(1, Math.max(0, n));
+}
 
 // Split a Cloudinary URL into [prefixIncludingUpload, rest]. `rest` is whatever
 // follows "/upload/" — may include an existing transform segment + version + id.
@@ -115,16 +131,21 @@ export function buildEditedUrl(url: string, edits: ImageEdits): string {
   }
   for (const e of effects) transforms.push(e);
 
-  // 4) Text overlay
+  // 4) Text overlay — freely positioned & sized (Instagram-story style).
+  //    To make font size predictable regardless of crop, we first scale the base
+  //    to a fixed reference width, so font px = textSize * TEXT_REF_WIDTH. The
+  //    layer is then placed at a relative x/y from the top-left (matches the
+  //    HTML preview's top-left anchor).
   if (edits.text && edits.text.trim()) {
+    // Cloudinary text layers: commas in the text must be double-encoded.
     const encoded = encodeURIComponent(edits.text.trim()).replace(/%2C/g, "%252C");
-    const gravity =
-      edits.textPosition === "north" ? "g_north,y_40" :
-      edits.textPosition === "center" ? "g_center" :
-      "g_south,y_40";
-    transforms.push(
-      `l_text:Arial_48_bold:${encoded},co_rgb:${edits.textColor},${gravity}`
-    );
+    const fontPx = Math.max(12, Math.round(edits.textSize * TEXT_REF_WIDTH));
+    const x = clamp01(edits.textX);
+    const y = clamp01(edits.textY);
+    // Pin to a known width so the font size is consistent on the output.
+    transforms.push(`c_scale,w_${TEXT_REF_WIDTH}`);
+    transforms.push(`l_text:Arial_${fontPx}_bold:${encoded},co_rgb:${edits.textColor}`);
+    transforms.push(`fl_layer_apply,g_north_west,x_${x.toFixed(4)},y_${y.toFixed(4)},fl_relative`);
   }
 
   const transformSegment = transforms.length > 0 ? transforms.join("/") + "/" : "";

@@ -29,6 +29,15 @@ export async function PATCH(
   if (typeof body.socialAccountId === "string") data.socialAccountId = body.socialAccountId;
   if (typeof body.platform === "string") data.platform = body.platform;
 
+  // Media edits (Cloudinary transformations applied client-side; we store the new URLs)
+  if (Array.isArray(body.mediaUrls) && body.mediaUrls.every((u: unknown) => typeof u === "string")) {
+    data.mediaUrls = body.mediaUrls;
+    if (body.mediaUrls.length > 0) {
+      data.mediaUrl = body.mediaUrls[0];
+      data.thumbnailUrl = body.mediaUrls[0];
+    }
+  }
+
   const updated = await db.post.update({ where: { id }, data });
   return NextResponse.json({ post: updated });
 }

@@ -10,6 +10,7 @@ import {
   Send,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   type Platform,
 } from "@/components/social-account-picker";
 import { PlatformPreview } from "@/components/platform-preview";
+import { ImageEditor } from "@/components/image-editor";
 
 interface PostShape {
   id: string;
@@ -55,7 +57,12 @@ export function PostDetailEditor({
     accounts.filter((a) => post.selectedAccountIds.includes(a.id))
   );
 
+  // Edited media URLs (photos only). Updated live by the image editor.
+  const [mediaUrls, setMediaUrls] = useState<string[]>(post.mediaUrls);
+  const [editorOpen, setEditorOpen] = useState(false);
+
   const isTerminal = post.status === "POSTED";
+  const isPhoto = post.mediaType === "PHOTO" || post.mediaType === "CAROUSEL";
   const primaryAccount = selectedAccounts[0] ?? null;
   const PLATFORM_NAMES: Record<string, string> = { INSTAGRAM: "Instagram", FACEBOOK: "Facebook", LINKEDIN: "LinkedIn", PINTEREST: "Pinterest" };
   const platformLabel = primaryAccount ? PLATFORM_NAMES[primaryAccount.platform] : "your platform";
@@ -232,6 +239,29 @@ export function PostDetailEditor({
         </div>
       </div>
 
+      {/* Edit images — photos/carousels only, before posting */}
+      {canPublish && isPhoto && !isTerminal && (
+        <div className="flex items-center justify-between rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+          <div>
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Edit images</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              Crop, filter, adjust and add text — non-destructive.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setEditorOpen(true)}
+            disabled={isWorking}
+            className="rounded-full"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Open editor
+          </Button>
+        </div>
+      )}
+
       {/* Account picker — shown to creators only */}
       {canPublish && (
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/40">
@@ -242,6 +272,18 @@ export function PostDetailEditor({
             onSelect={(accs) => setSelectedAccounts(accs)}
           />
         </div>
+      )}
+
+      {editorOpen && (
+        <ImageEditor
+          postId={post.id}
+          mediaUrls={mediaUrls}
+          onClose={() => setEditorOpen(false)}
+          onSaved={(urls) => {
+            setMediaUrls(urls);
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Live platform previews — one per selected account */}
@@ -262,7 +304,7 @@ export function PostDetailEditor({
                 displayName={acc.displayName}
                 avatarUrl={acc.avatarUrl}
                 caption={caption}
-                mediaUrls={post.mediaUrls}
+                mediaUrls={mediaUrls}
                 mediaType={post.mediaType}
               />
             </div>

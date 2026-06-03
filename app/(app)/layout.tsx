@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -96,6 +97,7 @@ export default async function AppLayout({
       <nav className="flex flex-col gap-0.5 text-sm">
         <NavItem href="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</NavItem>
         <NavItem href="/posts" icon={<ImageIcon className="h-4 w-4" />}>Posts</NavItem>
+        <NavItem href="/templates" icon={<Wand2 className="h-4 w-4" />}>Templates</NavItem>
         {me.role === "CREATOR" && (
           <NavItem href="/calendar" icon={<Calendar className="h-4 w-4" />}>Calendar</NavItem>
         )}

@@ -1,0 +1,103 @@
+# DigitalOcean App Platform spec.
+#
+# This file is OPTIONAL — you can configure everything in the DO web dashboard
+# instead. It exists so deploys are reproducible: if you ever delete the app,
+# `doctl apps create --spec .do/app.yaml` will recreate it.
+#
+# After your first dashboard-driven deploy, you can:
+#   doctl apps spec get <app-id> > .do/app.yaml
+# to capture whatever DO actually configured.
+
+name: anvaya
+region: nyc
+
+services:
+  - name: web
+    # App Platform expects either a Dockerfile or a buildpack-detected language.
+    # We use Dockerfile because Remotion needs custom Chromium deps.
+    dockerfile_path: Dockerfile
+    source_dir: /
+    github:
+      repo: Aesthetic002/Insta-Auto
+      branch: main
+      deploy_on_push: true
+
+    http_port: 4000
+    instance_size_slug: basic-xs
+    instance_count: 1
+
+    # Health check hits the home page. Adjust if you'd rather hit a dedicated
+    # /api/health route.
+    health_check:
+      http_path: /
+      initial_delay_seconds: 30
+
+    envs:
+      # All values here are PLACEHOLDERS — actual values must be set in the
+      # DO dashboard as `SECRET` env vars. Leaving them here keeps the spec
+      # complete so a fresh deploy knows what env vars to ask for.
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: NEXTAUTH_URL
+        scope: RUN_AND_BUILD_TIME
+      - key: NEXTAUTH_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: GOOGLE_CLIENT_ID
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: GOOGLE_CLIENT_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: META_APP_ID
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: META_APP_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: META_GRAPH_VERSION
+        scope: RUN_AND_BUILD_TIME
+        value: v23.0
+      - key: GEMINI_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: CLOUDINARY_CLOUD_NAME
+        scope: RUN_AND_BUILD_TIME
+      - key: CLOUDINARY_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: CLOUDINARY_API_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: RESEND_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: RESEND_FROM_EMAIL
+        scope: RUN_AND_BUILD_TIME
+      - key: LINKEDIN_CLIENT_ID
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: LINKEDIN_CLIENT_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: PINTEREST_APP_ID
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: PINTEREST_APP_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: CRON_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: APPROVAL_TOKEN_SECRET
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: ENCRYPTION_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      # Tells the render service to write per-render mp4s to /tmp (only
+      # writable spot in App Platform's container without a mounted volume).
+      - key: REMOTION_OUTPUT_DIR
+        scope: RUN_TIME
+        value: /tmp/renders

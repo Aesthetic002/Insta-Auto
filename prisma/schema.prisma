@@ -272,6 +272,34 @@ model PostTarget {
   @@index([postId])
 }
 
+enum RenderStatus {
+  QUEUED
+  RENDERING
+  UPLOADING
+  DONE
+  FAILED
+}
+
+// One render of a code-defined video template. Template definitions live in
+// /remotion/templates/* (see lib/templates.ts registry) — `templateId` is the
+// slug from that registry, not a foreign key.
+model RenderJob {
+  id           String       @id @default(cuid())
+  userId       String
+  templateId   String
+  inputs       Json         // { clip1Url, clip2Url, clip3Url, headline, ... } — matches template props
+  status       RenderStatus @default(QUEUED)
+  outputUrl    String?      @db.Text
+  thumbnailUrl String?      @db.Text
+  errorMessage String?      @db.Text
+  createdAt    DateTime     @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
 enum ApprovalAction {
   APPROVE
   REJECT

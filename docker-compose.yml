@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: anvaya-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: anvaya
+      POSTGRES_PASSWORD: anvaya
+      POSTGRES_DB: anvaya
+    # Native Postgres on this Windows machine already owns :5432, so we expose
+    # the container on :5433 to avoid the collision.
+    ports:
+      - "5433:5432"
+    volumes:
+      - anvaya_pg_data:/var/lib/postgresql/data
+
+volumes:
+  anvaya_pg_data:

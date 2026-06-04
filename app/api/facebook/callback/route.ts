@@ -8,7 +8,7 @@ import {
   exchangeCodeForUserToken,
   upgradeToLongLivedUserToken,
 } from "@/lib/instagram/oauth";
-import { getPublicOrigin } from "@/lib/origin";
+import { getPublicOrigin, publicUrl } from "@/lib/origin";
 
 const STATE_COOKIE = "fb_oauth_state";
 const GRAPH_BASE = "https://graph.facebook.com";
@@ -71,7 +71,7 @@ async function fetchPagesFromGranularScopes(userToken: string): Promise<FbPage[]
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.redirect(new URL("/", request.url));
+  if (!session?.user?.id) return NextResponse.redirect(publicUrl(request, "/"));
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
 }
 
 function redirectToSettings(request: Request, params: Record<string, string>) {
-  const u = new URL("/settings", request.url);
+  const u = publicUrl(request, "/settings");
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
   return NextResponse.redirect(u);
 }

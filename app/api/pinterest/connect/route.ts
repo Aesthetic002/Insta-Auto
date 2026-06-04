@@ -4,13 +4,13 @@ import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 import { buildPinterestAuthorizeUrl } from "@/lib/pinterest/oauth";
-import { getPublicOrigin } from "@/lib/origin";
+import { getPublicOrigin, publicUrl } from "@/lib/origin";
 
 const STATE_COOKIE = "pin_oauth_state";
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session?.user) return NextResponse.redirect(new URL("/", request.url));
+  if (!session?.user) return NextResponse.redirect(publicUrl(request, "/"));
 
   const state = randomBytes(16).toString("hex");
   const redirectUri = `${getPublicOrigin(request)}/api/pinterest/callback`;

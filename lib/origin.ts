@@ -21,3 +21,10 @@ export function getPublicOrigin(request: Request): string {
   if (env) return env.replace(/\/$/, "");
   return new URL(request.url).origin;
 }
+
+// Build a URL against the PUBLIC origin (instead of request.url) so generated
+// redirects work behind a proxy. Use this everywhere we would otherwise write
+// `new URL(path, request.url)` for a redirect Location header.
+export function publicUrl(request: Request, path: string): URL {
+  return new URL(path, getPublicOrigin(request));
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { publicUrl } from "@/lib/origin";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
     data: { disconnectedAt: new Date() },
   });
 
-  return NextResponse.redirect(new URL("/settings?disconnected=1", request.url), {
+  return NextResponse.redirect(publicUrl(request, "/settings?disconnected=1"), {
     status: 303,
   });
 }

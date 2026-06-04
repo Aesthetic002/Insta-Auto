@@ -6,6 +6,7 @@ import { isCreatorOf } from "@/lib/permissions";
 import { signApprovalToken } from "@/lib/crypto/tokens";
 import { sendEmail } from "@/lib/email/resend";
 import { approvalEmailHtml } from "@/lib/email/templates";
+import { getPublicOrigin } from "@/lib/origin";
 
 export async function POST(
   request: Request,
@@ -32,7 +33,7 @@ export async function POST(
     return NextResponse.json({ error: "no_email" }, { status: 400 });
   }
 
-  const appUrl = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
+  const appUrl = getPublicOrigin(request);
   const approveTok = signApprovalToken({ postId: id, action: "approve" });
   const rejectTok = signApprovalToken({ postId: id, action: "reject" });
   const editTok = signApprovalToken({ postId: id, action: "edit" });

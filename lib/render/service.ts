@@ -99,6 +99,18 @@ async function runRender(jobId: string): Promise<void> {
     outputLocation: outPath,
     inputProps: job.inputs as Record<string, unknown>,
     onProgress,
+    // Memory-cap the render so it fits in DO's 1GB container. Defaults run
+    // multiple Chromium workers in parallel + a large frame cache; that OOMs
+    // the compositor and panics with `Option::unwrap() on None`.
+    concurrency: 1,
+    // Cap the offthread video frame cache hard. The Rust compositor crashes
+    // (frame_cache.rs unwrap on None) when this cache grows past container
+    // memory. 200MB is plenty for a 6-second 1080×1920 render.
+    offthreadVideoCacheSizeInBytes: 200 * 1024 * 1024,
+    // Force software rendering (swiftshader) instead of hardware GPU — DO
+    // App Platform containers don't expose a GPU and trying to use one
+    // causes other Chromium crashes.
+    chromiumOptions: { gl: "swiftshader" },
   });
 
   await db.renderJob.update({

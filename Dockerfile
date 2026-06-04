@@ -19,7 +19,7 @@ COPY . .
 # Bump CACHE_BUST when you need to force `prisma generate` + `npm run build`
 # to re-execute. DigitalOcean App Platform caches layers aggressively, and a
 # `COPY . .` change isn't always enough to invalidate downstream RUN layers.
-ARG CACHE_BUST=2026-06-04d
+ARG CACHE_BUST=2026-06-04e
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Generate Prisma client + run Next build (which emits .next/standalone).
@@ -83,6 +83,9 @@ COPY --from=builder /app/remotion.config.ts ./remotion.config.ts
 COPY --from=builder /app/node_modules/@remotion ./node_modules/@remotion
 COPY --from=builder /app/node_modules/remotion ./node_modules/remotion
 COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
+# Imported by the Remotion templates (`import { z } from "zod"`). Bundler
+# resolves these at render-time, so it must be on the runtime filesystem.
+COPY --from=builder /app/node_modules/zod ./node_modules/zod
 # Prisma + its query engines live in node_modules — must be present at runtime.
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma

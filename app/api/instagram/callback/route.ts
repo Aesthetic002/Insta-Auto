@@ -9,6 +9,7 @@ import {
   exchangeCodeForUserToken,
   upgradeToLongLivedUserToken,
 } from "@/lib/instagram/oauth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "ig_oauth_state";
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     return redirectToSettings(request, { error: "state_mismatch" });
   }
 
-  const redirectUri = `${url.origin}/api/instagram/callback`;
+  const redirectUri = `${getPublicOrigin(request)}/api/instagram/callback`;
 
   try {
     const short = await exchangeCodeForUserToken({ code, redirectUri });

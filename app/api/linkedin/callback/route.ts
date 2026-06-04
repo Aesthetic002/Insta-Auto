@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto/encryption";
 import { exchangeLinkedInCode, getLinkedInProfile } from "@/lib/linkedin/oauth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "li_oauth_state";
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const redirectUri = `${url.origin}/api/linkedin/callback`;
+    const redirectUri = `${getPublicOrigin(request)}/api/linkedin/callback`;
     const { accessToken, expiresIn } = await exchangeLinkedInCode({ code, redirectUri });
     const profile = await getLinkedInProfile(accessToken);
 

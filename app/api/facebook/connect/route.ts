@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "fb_oauth_state";
 const FB_BASE = "https://www.facebook.com";
@@ -14,8 +15,7 @@ export async function GET(request: Request) {
   if (!session?.user) return NextResponse.redirect(new URL("/", request.url));
 
   const state = randomBytes(16).toString("hex");
-  const url = new URL(request.url);
-  const redirectUri = `${url.origin}/api/facebook/callback`;
+  const redirectUri = `${getPublicOrigin(request)}/api/facebook/callback`;
 
   const params = new URLSearchParams({
     client_id: process.env.META_APP_ID ?? "",

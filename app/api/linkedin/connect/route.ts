@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 import { buildLinkedInAuthorizeUrl } from "@/lib/linkedin/oauth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "li_oauth_state";
 
@@ -12,8 +13,7 @@ export async function GET(request: Request) {
   if (!session?.user) return NextResponse.redirect(new URL("/", request.url));
 
   const state = randomBytes(16).toString("hex");
-  const url = new URL(request.url);
-  const redirectUri = `${url.origin}/api/linkedin/callback`;
+  const redirectUri = `${getPublicOrigin(request)}/api/linkedin/callback`;
   const authorizeUrl = buildLinkedInAuthorizeUrl({ redirectUri, state });
 
   const cookieStore = await cookies();

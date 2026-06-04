@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import { auth } from "@/auth";
 import { buildAuthorizeUrl } from "@/lib/instagram/oauth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "ig_oauth_state";
 
@@ -14,8 +15,7 @@ export async function GET(request: Request) {
   }
 
   const state = randomBytes(16).toString("hex");
-  const url = new URL(request.url);
-  const redirectUri = `${url.origin}/api/instagram/callback`;
+  const redirectUri = `${getPublicOrigin(request)}/api/instagram/callback`;
   const authorizeUrl = buildAuthorizeUrl({ redirectUri, state });
 
   const cookieStore = await cookies();

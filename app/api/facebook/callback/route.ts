@@ -8,6 +8,7 @@ import {
   exchangeCodeForUserToken,
   upgradeToLongLivedUserToken,
 } from "@/lib/instagram/oauth";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "fb_oauth_state";
 const GRAPH_BASE = "https://graph.facebook.com";
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const redirectUri = `${url.origin}/api/facebook/callback`;
+    const redirectUri = `${getPublicOrigin(request)}/api/facebook/callback`;
     const short = await exchangeCodeForUserToken({ code, redirectUri });
     const long = await upgradeToLongLivedUserToken(short.accessToken);
 

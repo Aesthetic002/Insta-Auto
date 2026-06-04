@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto/encryption";
 import { exchangePinterestCode, getPinterestUser } from "@/lib/pinterest/oauth";
 import { getFirstPinterestBoard } from "@/lib/publish/pinterest";
+import { getPublicOrigin } from "@/lib/origin";
 
 const STATE_COOKIE = "pin_oauth_state";
 
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const redirectUri = `${url.origin}/api/pinterest/callback`;
+    const redirectUri = `${getPublicOrigin(request)}/api/pinterest/callback`;
     const { accessToken, expiresIn } = await exchangePinterestCode({ code, redirectUri });
     const profile = await getPinterestUser(accessToken);
     // Fetch first board to store as default

@@ -19,7 +19,7 @@ COPY . .
 # Bump CACHE_BUST when you need to force `prisma generate` + `npm run build`
 # to re-execute. DigitalOcean App Platform caches layers aggressively, and a
 # `COPY . .` change isn't always enough to invalidate downstream RUN layers.
-ARG CACHE_BUST=2026-06-04a
+ARG CACHE_BUST=2026-06-04b
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Generate Prisma client + run Next build (which emits .next/standalone).

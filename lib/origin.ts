@@ -5,15 +5,19 @@
 // returns the internal container address — e.g. `https://0.0.0.0:4000` — which
 // providers like Meta correctly reject as not whitelisted. So we prefer the
 // explicit env vars and only fall back to the request when nothing is configured.
+//
+// Note: ?? only catches null/undefined, but env vars are often set to an empty
+// string on DO. Treat empty strings as "not set" too.
+
+function firstNonEmpty(...values: (string | undefined)[]): string | undefined {
+  for (const v of values) {
+    if (v && v.trim().length > 0) return v.trim();
+  }
+  return undefined;
+}
 
 export function getPublicOrigin(request: Request): string {
-  const env = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL;
-  const fallback = new URL(request.url).origin;
-  const result = env ? env.replace(/\/$/, "") : fallback;
-  // TEMP debug — remove after we confirm the fix lands.
-  console.log("[origin] NEXTAUTH_URL=", JSON.stringify(process.env.NEXTAUTH_URL));
-  console.log("[origin] AUTH_URL=", JSON.stringify(process.env.AUTH_URL));
-  console.log("[origin] request.url=", JSON.stringify(request.url));
-  console.log("[origin] result=", JSON.stringify(result));
-  return result;
+  const env = firstNonEmpty(process.env.AUTH_URL, process.env.NEXTAUTH_URL);
+  if (env) return env.replace(/\/$/, "");
+  return new URL(request.url).origin;
 }

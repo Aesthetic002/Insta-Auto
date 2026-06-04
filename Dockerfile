@@ -19,7 +19,7 @@ COPY . .
 # Bump CACHE_BUST when you need to force `prisma generate` + `npm run build`
 # to re-execute. DigitalOcean App Platform caches layers aggressively, and a
 # `COPY . .` change isn't always enough to invalidate downstream RUN layers.
-ARG CACHE_BUST=2026-06-04e
+ARG CACHE_BUST=2026-06-04f
 RUN echo "Cache bust: $CACHE_BUST"
 
 # Generate Prisma client + run Next build (which emits .next/standalone).
@@ -75,20 +75,15 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Remotion needs its own source files + node_modules at runtime to bundle the
-# composition. Standalone build drops most node_modules, so we re-copy the
-# Remotion bits and the templates explicitly.
+# Remotion needs its source files + the FULL node_modules at runtime because
+# the bundler resolves template imports (zod, fonts, anything else templates
+# pull in) at render-time, not Docker build-time. Trying to selectively copy
+# only the packages we think we need is fragile — every new template can
+# break the runtime. Cost: image ~300MB bigger; benefit: renders never break.
 COPY --from=builder /app/remotion ./remotion
 COPY --from=builder /app/remotion.config.ts ./remotion.config.ts
-COPY --from=builder /app/node_modules/@remotion ./node_modules/@remotion
-COPY --from=builder /app/node_modules/remotion ./node_modules/remotion
-COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
-# Imported by the Remotion templates (`import { z } from "zod"`). Bundler
-# resolves these at render-time, so it must be on the runtime filesystem.
-COPY --from=builder /app/node_modules/zod ./node_modules/zod
-# Prisma + its query engines live in node_modules — must be present at runtime.
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules ./node_modules
+# Prisma schema dir (used by the runtime for migrations etc.).
 COPY --from=builder /app/prisma ./prisma
 
 # Render output dir. Files get cleaned up after upload; mount a volume here

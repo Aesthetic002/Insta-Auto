@@ -91,6 +91,56 @@ function rewriteInputUrls(
   return out;
 }
 
+// Cloudinary lazily generates derived assets the first time a transformed URL
+// is requested — for a video, that derivation can take 60-180s. By hitting the
+// URL ourselves (and waiting up to ~3min) before Chromium needs the bytes, we
+// move that latency out of Remotion's frame-fetch path entirely. Each request
+// is fire-and-forget per URL; we use HEAD to avoid downloading the body.
+async function warmCloudinaryDerivatives(
+  inputs: Record<string, unknown>
+): Promise<void> {
+  const seen = new Set<string>();
+  const warms: Promise<void>[] = [];
+
+  for (const v of Object.values(inputs)) {
+    if (typeof v !== "string") continue;
+    if (!v.includes("/video/upload/q_")) continue; // only transformed URLs
+    if (seen.has(v)) continue;
+    seen.add(v);
+
+    warms.push(
+      (async () => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 180_000);
+        try {
+          // GET with a Range header so Cloudinary streams just the first byte
+          // while still triggering full derivation. HEAD doesn't always
+          // trigger Cloudinary's derive pipeline.
+          const res = await fetch(v, {
+            method: "GET",
+            headers: { Range: "bytes=0-0" },
+            signal: controller.signal,
+          });
+          if (!res.ok && res.status !== 206) {
+            console.warn(
+              `[render] pre-warm got HTTP ${res.status} for ${v} — render may stall`
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `[render] pre-warm failed for ${v}:`,
+            err instanceof Error ? err.message : err
+          );
+        } finally {
+          clearTimeout(timer);
+        }
+      })()
+    );
+  }
+
+  await Promise.all(warms);
+}
+
 async function runRender(jobId: string): Promise<void> {
   const job = await db.renderJob.findUnique({ where: { id: jobId } });
   if (!job) throw new Error(`RenderJob ${jobId} not found`);
@@ -116,13 +166,12 @@ async function runRender(jobId: string): Promise<void> {
   // makes the difference between a 5s and 60s fetch on DO's container.
   const renderInputs = rewriteInputUrls(job.inputs as Record<string, unknown>);
 
-  const composition = await selectComposition({
-    serveUrl,
-    id: template.id,
-    inputProps: renderInputs,
-  });
-
   if (template.kind === "image") {
+    const composition = await selectComposition({
+      serveUrl,
+      id: template.id,
+      inputProps: renderInputs,
+    });
     await renderImageJob({
       jobId,
       userId: job.userId,
@@ -133,6 +182,18 @@ async function runRender(jobId: string): Promise<void> {
     });
     return;
   }
+
+  // Pre-warm Cloudinary derived video URLs before Chromium needs them.
+  // Cloudinary builds derived assets on the first request — for a video that
+  // can be 60-180s — and Chromium's `delayRender` only waits ~90s. Triggering
+  // the derivation ourselves moves that wait out of the render loop.
+  await warmCloudinaryDerivatives(renderInputs);
+
+  const composition = await selectComposition({
+    serveUrl,
+    id: template.id,
+    inputProps: renderInputs,
+  });
 
   await renderVideoJob({
     jobId,

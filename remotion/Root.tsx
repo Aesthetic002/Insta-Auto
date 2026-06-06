@@ -35,6 +35,10 @@ import {
   DentalTestimonial,
   dentalTestimonialSchema,
 } from "./templates/dental/testimonial-card/Composition";
+import {
+  DentalMegaPromo,
+  dentalMegaPromoSchema,
+} from "./templates/dental/mega-promo/Composition";
 
 // Sample assets used for previews / studio default props. Real renders use
 // the URLs the user uploaded via /api/render.
@@ -153,10 +157,35 @@ export function RemotionRoot() {
         schema={dentalOfferCardSchema}
         defaultProps={{
           imageUrl: SAMPLE_DENTAL_PHOTO,
-          offerLine: "20% OFF",
-          offerSubject: "Teeth Cleaning",
-          ctaLine: "Book today",
-          clinicName: "Bright Smile Dental",
+          headlineLine1: "Dental",
+          headlineLine2: "Care",
+          service1: "Teeth Whitening",
+          service2: "Braces & Aligners",
+          service3: "Dental Implants",
+          service4: "Regular Checkups",
+          clinicName: "Bright Smile",
+          phone: "+1 555-123-4567",
+        }}
+      />
+
+      <Composition
+        id="dental-mega-promo"
+        component={DentalMegaPromo}
+        durationInFrames={1}
+        fps={30}
+        width={1080}
+        height={1350}
+        schema={dentalMegaPromoSchema}
+        defaultProps={{
+          imageUrl: SAMPLE_DENTAL_PHOTO,
+          headlineLine1: "Dental",
+          headlineLine2: "Care",
+          tagline: "Brighten your smile with expert dental care, book your appointment today!",
+          service1: "Preventive Care",
+          service2: "Cosmetic Dentistry",
+          service3: "Restorative Treatments",
+          service4: "Orthodontic Services",
+          clinicName: "Bright Smile",
           phone: "+1 555-123-4567",
         }}
       />

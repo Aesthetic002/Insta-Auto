@@ -238,6 +238,9 @@ async function renderVideoJob(args: {
     // mp4; 90s gives the headroom without making truly hung renders take
     // forever to fail.
     timeoutInMilliseconds: 90_000,
+    // Verbose logs so we can see what Chromium / the proxy are actually
+    // doing on DO. Visible in DO Runtime Logs as `[render <id>] ...`.
+    logLevel: "verbose",
   });
 
   await db.renderJob.update({

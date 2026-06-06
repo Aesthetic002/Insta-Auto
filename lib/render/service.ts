@@ -63,6 +63,34 @@ export async function startRender(jobId: string): Promise<void> {
   });
 }
 
+// Cloudinary video transformation that downsizes a user upload before we hand
+// it to Chromium. The render output is still 1080×1920, but we don't need the
+// source clip at full resolution to do that — and a 10× smaller download is
+// the difference between a 5-second seek and a 60-second timeout on DO's
+// slow container egress. Applied only to Cloudinary video URLs.
+function transformCloudinaryVideoForRender(url: string): string {
+  if (!url.includes("/video/upload/")) return url;
+  // Strip any pre-existing transform so we don't stack them.
+  const cleaned = url.replace(/\/video\/upload\/[^v][^/]*\//, "/video/upload/");
+  // q_auto:low → ~70% smaller; vc_h264 → guarantee a Chromium-friendly codec.
+  return cleaned.replace(
+    "/video/upload/",
+    "/video/upload/q_auto:low,vc_h264,h_720,c_limit/"
+  );
+}
+
+function rewriteInputUrls(
+  inputs: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...inputs };
+  for (const [k, v] of Object.entries(inputs)) {
+    if (typeof v === "string" && v.includes("/video/upload/")) {
+      out[k] = transformCloudinaryVideoForRender(v);
+    }
+  }
+  return out;
+}
+
 async function runRender(jobId: string): Promise<void> {
   const job = await db.renderJob.findUnique({ where: { id: jobId } });
   if (!job) throw new Error(`RenderJob ${jobId} not found`);
@@ -84,10 +112,14 @@ async function runRender(jobId: string): Promise<void> {
 
   const serveUrl = await getBundle();
 
+  // Downsize Cloudinary video sources before handing them to Chromium —
+  // makes the difference between a 5s and 60s fetch on DO's container.
+  const renderInputs = rewriteInputUrls(job.inputs as Record<string, unknown>);
+
   const composition = await selectComposition({
     serveUrl,
     id: template.id,
-    inputProps: job.inputs as Record<string, unknown>,
+    inputProps: renderInputs,
   });
 
   if (template.kind === "image") {
@@ -97,7 +129,7 @@ async function runRender(jobId: string): Promise<void> {
       outDir,
       serveUrl,
       composition,
-      inputProps: job.inputs as Record<string, unknown>,
+      inputProps: renderInputs,
     });
     return;
   }
@@ -108,7 +140,7 @@ async function runRender(jobId: string): Promise<void> {
     outDir,
     serveUrl,
     composition,
-    inputProps: job.inputs as Record<string, unknown>,
+    inputProps: renderInputs,
   });
 }
 
@@ -138,8 +170,13 @@ async function renderVideoJob(args: {
     onProgress,
     // Memory caps so renders fit DO's 1GB container — see commit 75bcc18.
     concurrency: 1,
-    offthreadVideoCacheSizeInBytes: 200 * 1024 * 1024,
+    offthreadVideoCacheSizeInBytes: 300 * 1024 * 1024,
     chromiumOptions: { gl: "swiftshader" },
+    // Bump per-frame delayRender timeout from the 28s default. DO's egress
+    // + swiftshader decoding can take ~30-60s to seek into a large Cloudinary
+    // mp4; 90s gives the headroom without making truly hung renders take
+    // forever to fail.
+    timeoutInMilliseconds: 90_000,
   });
 
   await db.renderJob.update({

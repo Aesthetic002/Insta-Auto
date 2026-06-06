@@ -21,16 +21,24 @@ enum UserRole {
   EDITOR
 }
 
+// Promote scales to many professions over time. Onboarding asks the user which
+// one they are so the /studio gallery can surface only relevant templates.
+// Add new values here as we expand beyond dental.
+enum Profession {
+  DENTAL
+}
+
 model User {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String      @unique
   emailVerified DateTime?
   image         String?
-  role          UserRole?  // null until onboarded
-  onboarded     Boolean    @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole?   // null until onboarded
+  profession    Profession? // null until profession step of onboarding
+  onboarded     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   accounts          Account[]
   sessions          Session[]
@@ -285,14 +293,20 @@ enum RenderStatus {
   FAILED
 }
 
-// One render of a code-defined video template. Template definitions live in
+enum RenderKind {
+  VIDEO   // Rendered as mp4 via Remotion's renderMedia
+  IMAGE   // Rendered as png/jpg via Remotion's renderStill
+}
+
+// One render of a code-defined template. Template definitions live in
 // /remotion/templates/* (see lib/templates.ts registry) — `templateId` is the
 // slug from that registry, not a foreign key.
 model RenderJob {
   id           String       @id @default(cuid())
   userId       String
   templateId   String
-  inputs       Json         // { clip1Url, clip2Url, clip3Url, headline, ... } — matches template props
+  kind         RenderKind   @default(VIDEO) // matches the template's TemplateKind
+  inputs       Json         // matches template props
   status       RenderStatus @default(QUEUED)
   outputUrl    String?      @db.Text
   thumbnailUrl String?      @db.Text

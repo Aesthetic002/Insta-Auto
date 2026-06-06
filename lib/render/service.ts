@@ -4,8 +4,10 @@
 //    `startRender(jobId)` without awaiting — the response returns instantly
 //    so the browser can poll for status.
 // 2. startRender bundles the Remotion entry (cached after first call),
-//    renders the chosen composition with the user's props to a tmp mp4,
-//    uploads to Cloudinary, then marks the job DONE with the secure URL.
+//    renders the chosen composition with the user's props, uploads to
+//    Cloudinary, then marks the job DONE with the secure URL.
+// 3. Video templates → renderMedia() → mp4 → Cloudinary video resource.
+//    Image templates → renderStill() → png  → Cloudinary image resource.
 //
 // This runs inside the Next.js server process — fine for low volume during
 // initial testing. Each render holds the event loop in chunks (Chromium runs
@@ -20,13 +22,17 @@ import { randomUUID } from "node:crypto";
 import { bundle } from "@remotion/bundler";
 import {
   renderMedia,
+  renderStill,
   selectComposition,
   type RenderMediaOnProgress,
 } from "@remotion/renderer";
 
 import { db } from "@/lib/db";
 import { getTemplate } from "@/lib/templates";
-import { uploadLocalVideo } from "@/lib/cloudinary/upload";
+import {
+  uploadLocalImage,
+  uploadLocalVideo,
+} from "@/lib/cloudinary/upload";
 
 // Bundle once per server process. Subsequent renders reuse the same bundle URL.
 let bundlePromise: Promise<string> | null = null;
@@ -35,7 +41,6 @@ function getBundle(): Promise<string> {
   if (!bundlePromise) {
     bundlePromise = bundle({
       entryPoint: path.resolve(process.cwd(), "remotion/index.ts"),
-      // Use the default webpack override; Remotion handles TSX/JSX.
     });
   }
   return bundlePromise;
@@ -76,7 +81,6 @@ async function runRender(jobId: string): Promise<void> {
     process.env.REMOTION_OUTPUT_DIR ??
     path.resolve(process.cwd(), "out", "renders");
   await mkdir(outDir, { recursive: true });
-  const outPath = path.join(outDir, `${jobId}.mp4`);
 
   const serveUrl = await getBundle();
 
@@ -86,52 +90,76 @@ async function runRender(jobId: string): Promise<void> {
     inputProps: job.inputs as Record<string, unknown>,
   });
 
+  if (template.kind === "image") {
+    await renderImageJob({
+      jobId,
+      userId: job.userId,
+      outDir,
+      serveUrl,
+      composition,
+      inputProps: job.inputs as Record<string, unknown>,
+    });
+    return;
+  }
+
+  await renderVideoJob({
+    jobId,
+    userId: job.userId,
+    outDir,
+    serveUrl,
+    composition,
+    inputProps: job.inputs as Record<string, unknown>,
+  });
+}
+
+async function renderVideoJob(args: {
+  jobId: string;
+  userId: string;
+  outDir: string;
+  serveUrl: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  composition: any;
+  inputProps: Record<string, unknown>;
+}): Promise<void> {
+  const outPath = path.join(args.outDir, `${args.jobId}.mp4`);
+
   const onProgress: RenderMediaOnProgress = ({ progress }) => {
     if (process.env.NODE_ENV !== "production") {
-      process.stdout.write(`\r[render ${jobId}] ${Math.round(progress * 100)}%`);
+      process.stdout.write(`\r[render ${args.jobId}] ${Math.round(progress * 100)}%`);
     }
   };
 
   await renderMedia({
-    composition,
-    serveUrl,
+    composition: args.composition,
+    serveUrl: args.serveUrl,
     codec: "h264",
     outputLocation: outPath,
-    inputProps: job.inputs as Record<string, unknown>,
+    inputProps: args.inputProps,
     onProgress,
-    // Memory-cap the render so it fits in DO's 1GB container. Defaults run
-    // multiple Chromium workers in parallel + a large frame cache; that OOMs
-    // the compositor and panics with `Option::unwrap() on None`.
+    // Memory caps so renders fit DO's 1GB container — see commit 75bcc18.
     concurrency: 1,
-    // Cap the offthread video frame cache hard. The Rust compositor crashes
-    // (frame_cache.rs unwrap on None) when this cache grows past container
-    // memory. 200MB is plenty for a 6-second 1080×1920 render.
     offthreadVideoCacheSizeInBytes: 200 * 1024 * 1024,
-    // Force software rendering (swiftshader) instead of hardware GPU — DO
-    // App Platform containers don't expose a GPU and trying to use one
-    // causes other Chromium crashes.
     chromiumOptions: { gl: "swiftshader" },
   });
 
   await db.renderJob.update({
-    where: { id: jobId },
+    where: { id: args.jobId },
     data: { status: "UPLOADING" },
   });
 
-  const publicId = `r_${job.userId}/${randomUUID()}`;
+  const publicId = `r_${args.userId}/${randomUUID()}`;
   const uploaded = await uploadLocalVideo({
     filePath: outPath,
     publicId,
     folder: "renders",
   });
 
-  // Build a Cloudinary thumbnail URL the same way the rest of the app does.
   const thumbnailUrl = uploaded.secureUrl
     .replace("/video/upload/", "/video/upload/so_0,w_400,h_400,c_fill/")
     .replace(/\.[^.]+$/, ".jpg");
 
   await db.renderJob.update({
-    where: { id: jobId },
+    where: { id: args.jobId },
     data: {
       status: "DONE",
       outputUrl: uploaded.secureUrl,
@@ -140,6 +168,60 @@ async function runRender(jobId: string): Promise<void> {
     },
   });
 
-  // Best-effort: delete the local mp4. Don't fail the job if it's locked.
+  await rm(outPath, { force: true }).catch(() => {});
+}
+
+async function renderImageJob(args: {
+  jobId: string;
+  userId: string;
+  outDir: string;
+  serveUrl: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  composition: any;
+  inputProps: Record<string, unknown>;
+}): Promise<void> {
+  const outPath = path.join(args.outDir, `${args.jobId}.png`);
+
+  await renderStill({
+    composition: args.composition,
+    serveUrl: args.serveUrl,
+    output: outPath,
+    inputProps: args.inputProps,
+    imageFormat: "png",
+    // Same Chromium hardening as video renders.
+    chromiumOptions: { gl: "swiftshader" },
+  });
+
+  await db.renderJob.update({
+    where: { id: args.jobId },
+    data: { status: "UPLOADING" },
+  });
+
+  const publicId = `r_${args.userId}/${randomUUID()}`;
+  const uploaded = await uploadLocalImage({
+    filePath: outPath,
+    publicId,
+    folder: "renders",
+    ext: "png",
+  });
+
+  // For images, the upload URL itself is the thumbnail (no separate frame
+  // extraction needed). Use a smaller Cloudinary-transformed variant for the
+  // gallery card.
+  const thumbnailUrl = uploaded.secureUrl.replace(
+    "/image/upload/",
+    "/image/upload/w_400,h_400,c_fill/"
+  );
+
+  await db.renderJob.update({
+    where: { id: args.jobId },
+    data: {
+      status: "DONE",
+      outputUrl: uploaded.secureUrl,
+      thumbnailUrl,
+      completedAt: new Date(),
+    },
+  });
+
   await rm(outPath, { force: true }).catch(() => {});
 }

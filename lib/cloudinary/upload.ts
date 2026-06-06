@@ -2,18 +2,22 @@ import { stat, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 // Server-side upload of a local file to Cloudinary. Used by the render service
-// to push the rendered mp4 after Remotion finishes, so the final URL fits
-// into the existing /api/posts mediaUrl shape.
+// to push rendered media after Remotion finishes, so the final URL fits into
+// the existing /api/posts mediaUrl shape.
 
 export interface UploadedAsset {
   secureUrl: string;
   publicId: string;
 }
 
-export async function uploadLocalVideo(opts: {
+export type CloudinaryResourceType = "video" | "image";
+
+export async function uploadLocalFile(opts: {
   filePath: string;
   publicId: string;
+  resourceType: CloudinaryResourceType;
   folder?: string;
+  ext?: string; // e.g. "mp4", "png" — informational only, Cloudinary infers from bytes
 }): Promise<UploadedAsset> {
   const cloudName = required("CLOUDINARY_CLOUD_NAME");
   const apiKey = required("CLOUDINARY_API_KEY");
@@ -39,10 +43,11 @@ export async function uploadLocalVideo(opts: {
   form.append("signature", signature);
 
   const buf = await readFile(opts.filePath);
-  form.append("file", new Blob([buf]), `${opts.publicId}.mp4`);
+  const ext = opts.ext ?? (opts.resourceType === "video" ? "mp4" : "png");
+  form.append("file", new Blob([buf]), `${opts.publicId}.${ext}`);
 
   const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/${opts.resourceType}/upload`,
     { method: "POST", body: form }
   );
   if (!res.ok) {
@@ -51,6 +56,24 @@ export async function uploadLocalVideo(opts: {
   }
   const json = (await res.json()) as { secure_url: string; public_id: string };
   return { secureUrl: json.secure_url, publicId: json.public_id };
+}
+
+// Back-compat alias — old call sites that already imported uploadLocalVideo.
+export async function uploadLocalVideo(opts: {
+  filePath: string;
+  publicId: string;
+  folder?: string;
+}): Promise<UploadedAsset> {
+  return uploadLocalFile({ ...opts, resourceType: "video", ext: "mp4" });
+}
+
+export async function uploadLocalImage(opts: {
+  filePath: string;
+  publicId: string;
+  folder?: string;
+  ext?: "png" | "jpg";
+}): Promise<UploadedAsset> {
+  return uploadLocalFile({ ...opts, resourceType: "image", ext: opts.ext ?? "png" });
 }
 
 function signParams(
@@ -69,4 +92,3 @@ function required(name: string): string {
   if (!v) throw new Error(`Missing env: ${name}`);
   return v;
 }
-

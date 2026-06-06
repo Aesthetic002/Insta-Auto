@@ -22,14 +22,23 @@ export default function TemplatesPage() {
           >
             <div className="relative aspect-[9/16] overflow-hidden bg-zinc-900">
               {t.previewUrl ? (
-                <video
-                  src={t.previewUrl}
-                  className="h-full w-full object-cover"
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                />
+                t.kind === "video" ? (
+                  <video
+                    src={t.previewUrl}
+                    className="h-full w-full object-cover"
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={t.previewUrl}
+                    alt={t.name}
+                    className="h-full w-full object-cover"
+                  />
+                )
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-fuchsia-600 via-rose-500 to-amber-500">
                   <Wand2 className="h-10 w-10 text-white/80" />
@@ -45,8 +54,12 @@ export default function TemplatesPage() {
                 {t.description}
               </p>
               <div className="mt-3 text-[11px] text-zinc-400">
-                {t.slots.length} clip{t.slots.length === 1 ? "" : "s"} ·{" "}
-                {(t.durationInFrames / t.fps).toFixed(0)}s · {t.width}×{t.height}
+                {t.slots.length} {t.kind === "video" ? "clip" : "photo"}
+                {t.slots.length === 1 ? "" : "s"} ·{" "}
+                {t.kind === "video"
+                  ? `${(t.durationInFrames / t.fps).toFixed(0)}s`
+                  : "image"}{" "}
+                · {t.width}×{t.height}
               </div>
             </div>
           </Link>

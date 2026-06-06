@@ -209,7 +209,7 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
         <SlotUploader
           key={slot.id}
           label={slot.label}
-          maxSeconds={slot.maxSeconds}
+          maxSeconds={slot.maxSeconds ?? 6}
           state={slots[slot.id]}
           disabled={isRendering}
           onFile={(f) => uploadSlot(slot.id, f)}

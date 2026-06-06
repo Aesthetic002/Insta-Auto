@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     data: {
       userId: session.user.id,
       templateId: template.id,
+      kind: template.kind === "image" ? "IMAGE" : "VIDEO",
       inputs: inputs as object,
       status: "QUEUED",
     },

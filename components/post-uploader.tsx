@@ -37,7 +37,13 @@ interface PhotoFile {
 }
 
 interface PostUploaderProps {
-  prefill?: { mediaUrl: string; thumbnailUrl?: string };
+  prefill?: {
+    mediaUrl: string;
+    thumbnailUrl?: string;
+    // "video" (default) flows into mediaType=VIDEO. "image" flows into
+    // mediaType=PHOTO so the same draft pipeline handles rendered images.
+    kind?: "video" | "image";
+  };
 }
 
 export function PostUploader({ prefill }: PostUploaderProps = {}) {
@@ -172,6 +178,31 @@ export function PostUploader({ prefill }: PostUploaderProps = {}) {
     }
 
     try {
+      // Prefill from /studio (rendered template). For image kind we route into
+      // mediaType=PHOTO so the existing photo-post flow handles it.
+      if (prefill && prefill.kind === "image") {
+        const mediaUrl = prefill.mediaUrl;
+        const thumbnailUrl = prefill.thumbnailUrl ?? mediaUrl;
+        setState({ kind: "saving" });
+        const res = await fetch("/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mediaUrl,
+            mediaUrls: [mediaUrl],
+            thumbnailUrl,
+            outline,
+            mediaType: "PHOTO",
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to save");
+        toast.success("Saved as draft. Add a caption next.");
+        router.push("/posts");
+        router.refresh();
+        return;
+      }
+
       if (mode === "VIDEO") {
         let videoUrl: string;
         let thumbnailUrl: string;
@@ -278,13 +309,22 @@ export function PostUploader({ prefill }: PostUploaderProps = {}) {
       {prefill ? (
         <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
           <div className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-            Rendered video from template
+            Rendered {prefill.kind === "image" ? "image" : "video"} from template
           </div>
-          <video
-            src={prefill.mediaUrl}
-            controls
-            className="w-full max-w-xs rounded-xl"
-          />
+          {prefill.kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={prefill.mediaUrl}
+              alt="Rendered template"
+              className="w-full max-w-xs rounded-xl"
+            />
+          ) : (
+            <video
+              src={prefill.mediaUrl}
+              controls
+              className="w-full max-w-xs rounded-xl"
+            />
+          )}
         </div>
       ) : mode === "VIDEO" ? (
         <div

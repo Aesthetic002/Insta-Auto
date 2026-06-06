@@ -3,16 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileVideo, Loader2, UploadCloud, X } from "lucide-react";
+import {
+  ImageIcon,
+  Loader2,
+  UploadCloud,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { VideoTemplate } from "@/lib/templates";
+import type { ImageTemplate } from "@/lib/templates";
 
-const MAX_BYTES = 200 * 1024 * 1024; // 200 MB per slot — same as PostUploader.
+const MAX_BYTES = 20 * 1024 * 1024; // 20 MB per slot — same as PostUploader photos.
 
 interface SignedParams {
   cloudName: string;
@@ -36,7 +42,7 @@ type RenderState =
   | { kind: "done"; outputUrl: string; thumbnailUrl: string | null }
   | { kind: "error"; message: string };
 
-export function TemplateRender({ template }: { template: VideoTemplate }) {
+export function ImageTemplateRender({ template }: { template: ImageTemplate }) {
   const router = useRouter();
   const [slots, setSlots] = useState<Record<string, SlotState>>(
     Object.fromEntries(template.slots.map((s) => [s.id, { kind: "empty" } as SlotState]))
@@ -55,17 +61,17 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
   const isRendering = render.kind === "rendering";
 
   const uploadSlot = async (slotId: string, file: File) => {
-    if (!file.type.startsWith("video/")) {
+    if (!file.type.startsWith("image/")) {
       setSlots((p) => ({
         ...p,
-        [slotId]: { kind: "error", message: "Please pick a video file." },
+        [slotId]: { kind: "error", message: "Please pick an image file." },
       }));
       return;
     }
     if (file.size > MAX_BYTES) {
       setSlots((p) => ({
         ...p,
-        [slotId]: { kind: "error", message: "Video too large. Max 200 MB." },
+        [slotId]: { kind: "error", message: "Image too large. Max 20 MB." },
       }));
       return;
     }
@@ -76,7 +82,7 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
       const sigRes = await fetch("/api/upload/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resourceType: "video" }),
+        body: JSON.stringify({ resourceType: "image" }),
       });
       if (!sigRes.ok) throw new Error("Could not get upload signature");
       const signed = (await sigRes.json()) as SignedParams;
@@ -132,14 +138,19 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
   };
 
   const startRender = async () => {
-    const inputs: Record<string, string> = {};
+    const inputs: Record<string, string | number> = {};
     for (const s of template.slots) {
       const st = slots[s.id];
       if (st?.kind !== "done") return;
       inputs[s.id] = st.url;
     }
     for (const t of template.textInputs) {
-      inputs[t.id] = textValues[t.id].trim();
+      const raw = textValues[t.id].trim();
+      // If the field is "rating" or a max-1-char numeric input, send as number.
+      const asNumber = Number(raw);
+      const isNumeric =
+        t.maxChars <= 2 && Number.isFinite(asNumber) && raw.length > 0;
+      inputs[t.id] = isNumeric ? asNumber : raw;
     }
 
     try {
@@ -187,7 +198,8 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
         // network blip — keep polling
       }
     };
-    const handle = setInterval(tick, 1500);
+    // Image renders are fast — poll faster than the video flow.
+    const handle = setInterval(tick, 800);
     return () => {
       cancelled = true;
       clearInterval(handle);
@@ -198,7 +210,7 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
     if (render.kind !== "done") return;
     const qs = new URLSearchParams({
       mediaUrl: render.outputUrl,
-      kind: "video",
+      kind: "image",
       ...(render.thumbnailUrl ? { thumbnailUrl: render.thumbnailUrl } : {}),
     });
     router.push(`/posts/new?${qs.toString()}`);
@@ -207,10 +219,9 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
   return (
     <div className="space-y-6">
       {template.slots.map((slot) => (
-        <SlotUploader
+        <ImageSlotUploader
           key={slot.id}
           label={slot.label}
-          maxSeconds={slot.maxSeconds ?? 6}
           state={slots[slot.id]}
           disabled={isRendering}
           onFile={(f) => uploadSlot(slot.id, f)}
@@ -223,16 +234,31 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
       {template.textInputs.map((t) => (
         <div key={t.id} className="space-y-2">
           <Label htmlFor={`txt-${t.id}`}>{t.label}</Label>
-          <Input
-            id={`txt-${t.id}`}
-            value={textValues[t.id]}
-            onChange={(e) =>
-              setTextValues((p) => ({ ...p, [t.id]: e.target.value }))
-            }
-            placeholder={t.placeholder}
-            maxLength={t.maxChars}
-            disabled={isRendering}
-          />
+          {t.maxChars > 60 ? (
+            <Textarea
+              id={`txt-${t.id}`}
+              value={textValues[t.id]}
+              onChange={(e) =>
+                setTextValues((p) => ({ ...p, [t.id]: e.target.value }))
+              }
+              placeholder={t.placeholder}
+              maxLength={t.maxChars}
+              disabled={isRendering}
+              rows={3}
+              className="resize-none"
+            />
+          ) : (
+            <Input
+              id={`txt-${t.id}`}
+              value={textValues[t.id]}
+              onChange={(e) =>
+                setTextValues((p) => ({ ...p, [t.id]: e.target.value }))
+              }
+              placeholder={t.placeholder}
+              maxLength={t.maxChars}
+              disabled={isRendering}
+            />
+          )}
           <p className="text-xs text-zinc-500">
             {textValues[t.id]?.length ?? 0} / {t.maxChars}
           </p>
@@ -244,11 +270,11 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
           <p className="flex items-center gap-2 text-sm font-medium">
             <Loader2 className="h-4 w-4 animate-spin" />
             {render.status === "QUEUED" && "Queued…"}
-            {render.status === "RENDERING" && "Rendering your video…"}
-            {render.status === "UPLOADING" && "Uploading rendered video…"}
+            {render.status === "RENDERING" && "Rendering your image…"}
+            {render.status === "UPLOADING" && "Uploading…"}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Hang on — this usually takes 20–60s for a 6-second template.
+            Hang tight — image renders usually take 5-15 seconds.
           </p>
         </div>
       )}
@@ -256,11 +282,12 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
       {render.kind === "done" && (
         <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
           <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-            Your video is ready.
+            Your image is ready.
           </p>
-          <video
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={render.outputUrl}
-            controls
+            alt="Rendered"
             className="w-full max-w-xs rounded-xl"
           />
           <div className="flex flex-wrap gap-2">
@@ -306,7 +333,7 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
               Rendering…
             </>
           ) : (
-            "Render video"
+            "Render image"
           )}
         </Button>
       </div>
@@ -314,16 +341,14 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
   );
 }
 
-function SlotUploader({
+function ImageSlotUploader({
   label,
-  maxSeconds,
   state,
   disabled,
   onFile,
   onClear,
 }: {
   label: string;
-  maxSeconds: number;
   state: SlotState;
   disabled: boolean;
   onFile: (file: File) => void;
@@ -333,7 +358,7 @@ function SlotUploader({
 
   return (
     <div className="space-y-2">
-      <Label>{label} <span className="text-xs font-normal text-zinc-500">· up to {maxSeconds}s shown</span></Label>
+      <Label>{label}</Label>
       <div
         onClick={() => !disabled && inputRef.current?.click()}
         className={cn(
@@ -347,7 +372,7 @@ function SlotUploader({
         <input
           ref={inputRef}
           type="file"
-          accept="video/*"
+          accept="image/*"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -357,7 +382,7 @@ function SlotUploader({
         />
         {state.kind === "done" && (
           <div className="flex flex-col items-center gap-1">
-            <FileVideo className="h-6 w-6 text-emerald-500" />
+            <ImageIcon className="h-6 w-6 text-emerald-500" />
             <div className="max-w-[12rem] truncate text-sm font-medium">
               {state.name}
             </div>
@@ -385,8 +410,8 @@ function SlotUploader({
         {state.kind === "empty" && (
           <div className="flex flex-col items-center gap-1.5">
             <UploadCloud className="h-6 w-6 text-zinc-400" />
-            <div className="text-sm font-medium">Click to upload a clip</div>
-            <div className="text-xs text-zinc-500">MP4 / MOV up to 200 MB</div>
+            <div className="text-sm font-medium">Click to upload a photo</div>
+            <div className="text-xs text-zinc-500">JPG / PNG up to 20 MB</div>
           </div>
         )}
         {state.kind === "error" && (

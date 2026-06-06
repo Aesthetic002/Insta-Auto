@@ -187,11 +187,98 @@ const GENERIC_VIDEO_TEMPLATES: VideoTemplate[] = [
 ];
 
 // ---------- Dental templates ----------
-//
-// Populated in Phase 4 — keep this empty for now. Each entry will follow the
-// VideoTemplate / ImageTemplate shape above with profession: "DENTAL".
 
-const DENTAL_TEMPLATES: Template[] = [];
+const DENTAL_TEMPLATES: Template[] = [
+  {
+    id: "dental-before-after-reel",
+    name: "Before / After · Reel",
+    description:
+      "Two clips with a clean swipe between BEFORE and AFTER, treatment name + clinic footer. Best for transformations like whitening, ortho, smile makeover.",
+    kind: "video",
+    profession: "DENTAL",
+    category: "BEFORE_AFTER",
+    fps: 30,
+    width: 1080,
+    height: 1920,
+    durationInFrames: 210,
+    previewUrl: "/template-previews/dental/dental-before-after-reel.mp4",
+    slots: [
+      { id: "beforeUrl", label: "Before clip", kind: "video", maxSeconds: 3 },
+      { id: "afterUrl",  label: "After clip",  kind: "video", maxSeconds: 4 },
+    ],
+    textInputs: [
+      { id: "treatment",  label: "Treatment",   maxChars: 30, placeholder: "Smile Makeover" },
+      { id: "clinicName", label: "Clinic name", maxChars: 40, placeholder: "Bright Smile Dental" },
+    ],
+  },
+  {
+    id: "dental-offer-card",
+    name: "Offer · Promo Card",
+    description:
+      "1080×1350 portrait card for an Instagram post. Photo on top, big offer line + CTA + clinic block on cream background.",
+    kind: "image",
+    profession: "DENTAL",
+    category: "OFFER_CARD",
+    width: 1080,
+    height: 1350,
+    previewUrl: "/template-previews/dental/dental-offer-card.png",
+    slots: [
+      { id: "imageUrl", label: "Clinic / treatment photo", kind: "image" },
+    ],
+    textInputs: [
+      { id: "offerLine",    label: "Offer headline",  maxChars: 12, placeholder: "20% OFF" },
+      { id: "offerSubject", label: "Offer subject",   maxChars: 30, placeholder: "Teeth Cleaning" },
+      { id: "ctaLine",      label: "Call to action",  maxChars: 18, placeholder: "Book today" },
+      { id: "clinicName",   label: "Clinic name",     maxChars: 40, placeholder: "Bright Smile Dental" },
+      { id: "phone",        label: "Phone (optional)",maxChars: 20, placeholder: "+1 555-123-4567" },
+    ],
+  },
+  {
+    id: "dental-service-explainer",
+    name: "Service Explainer · Reel",
+    description:
+      "Big hook headline (\"Why Invisalign?\") then 3 benefit bullets animating in over a clip. Reads like a quick ad. ~11 seconds.",
+    kind: "video",
+    profession: "DENTAL",
+    category: "EXPLAINER",
+    fps: 30,
+    width: 1080,
+    height: 1920,
+    durationInFrames: 330,
+    previewUrl: "/template-previews/dental/dental-service-explainer.mp4",
+    slots: [
+      { id: "clipUrl", label: "Background clip", kind: "video", maxSeconds: 9 },
+    ],
+    textInputs: [
+      { id: "hookLine",   label: "Hook (top headline)", maxChars: 20, placeholder: "Why Invisalign?" },
+      { id: "point1",     label: "Benefit 1",            maxChars: 30, placeholder: "Almost invisible" },
+      { id: "point2",     label: "Benefit 2",            maxChars: 30, placeholder: "Removable for meals" },
+      { id: "point3",     label: "Benefit 3",            maxChars: 30, placeholder: "Faster than braces" },
+      { id: "clinicName", label: "Clinic name",          maxChars: 40, placeholder: "Bright Smile Dental" },
+    ],
+  },
+  {
+    id: "dental-testimonial-card",
+    name: "Testimonial · Square Card",
+    description:
+      "1080×1080 Instagram post. Big quote, 5-star rating, patient photo circle + name. Lift trust from real patient reviews.",
+    kind: "image",
+    profession: "DENTAL",
+    category: "TESTIMONIAL",
+    width: 1080,
+    height: 1080,
+    previewUrl: "/template-previews/dental/dental-testimonial-card.png",
+    slots: [
+      { id: "patientPhotoUrl", label: "Patient photo", kind: "image" },
+    ],
+    textInputs: [
+      { id: "quote",       label: "Patient quote", maxChars: 180, placeholder: "Best dental experience I've ever had." },
+      { id: "patientName", label: "Patient name",  maxChars: 30,  placeholder: "Sarah Mitchell" },
+      { id: "rating",      label: "Star rating (1-5)", maxChars: 1, placeholder: "5" },
+      { id: "clinicName",  label: "Clinic name",   maxChars: 40,  placeholder: "Bright Smile Dental" },
+    ],
+  },
+];
 
 // ---------- Public API ----------
 

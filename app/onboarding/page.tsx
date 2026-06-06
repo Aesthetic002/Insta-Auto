@@ -10,7 +10,8 @@ export default async function OnboardingPage() {
   if (!session?.user?.id) redirect("/");
 
   const user = await db.user.findUnique({ where: { id: session.user.id } });
-  if (user?.onboarded) redirect("/dashboard");
+  // Only skip onboarding if BOTH steps are done (role + profession).
+  if (user?.onboarded && user.profession) redirect("/dashboard");
 
   return (
     <main className="relative isolate flex min-h-screen items-center justify-center bg-gradient-to-br from-fuchsia-50 via-white to-rose-50 px-6 py-16 dark:from-fuchsia-950/30 dark:via-black dark:to-rose-950/20">

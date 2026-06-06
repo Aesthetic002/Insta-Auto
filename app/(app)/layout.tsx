@@ -34,6 +34,8 @@ export default async function AppLayout({
   const me = await db.user.findUnique({ where: { id: userId } });
   if (!me) redirect("/");
   if (!me.onboarded) redirect("/onboarding");
+  // Existing users from before profession-tagged onboarding need to pick one.
+  if (!me.profession) redirect("/onboarding");
 
   let activeCreator: {
     id: string;
@@ -124,8 +126,9 @@ export default async function AppLayout({
           <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
             {me.name ?? "Guest"}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <RoleBadge role={me.role} />
+            <ProfessionBadge profession={me.profession} />
           </div>
         </div>
         <ThemeToggle className="shrink-0 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50" />
@@ -211,6 +214,19 @@ function RoleBadge({ role }: { role: "CREATOR" | "EDITOR" | null }) {
       }
     >
       {role}
+    </span>
+  );
+}
+
+const PROFESSION_LABEL: Record<string, string> = {
+  DENTAL: "Dental",
+};
+
+function ProfessionBadge({ profession }: { profession: string | null }) {
+  if (!profession) return null;
+  return (
+    <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+      {PROFESSION_LABEL[profession] ?? profession}
     </span>
   );
 }

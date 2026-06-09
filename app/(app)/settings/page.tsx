@@ -9,6 +9,7 @@ import {
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { ApprovalModeCard } from "@/components/approval-mode-card";
+import { BusinessProfileCard } from "@/components/business-profile-card";
 import { CollaboratorsCard } from "@/components/collaborators-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,7 +77,7 @@ export default async function SettingsPage({
 
   const isCreator = me.role === "CREATOR";
 
-  const [socialAccounts, prefs, invites] = await Promise.all([
+  const [socialAccounts, prefs, invites, businessProfile] = await Promise.all([
     isCreator
       ? db.socialAccount.findMany({
           where: { userId },
@@ -87,6 +88,9 @@ export default async function SettingsPage({
       ? db.preferences.upsert({ where: { userId }, create: { userId }, update: {} })
       : Promise.resolve(null),
     loadInvites(userId, me.role!),
+    isCreator
+      ? db.businessProfile.findUnique({ where: { userId } })
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -127,6 +131,16 @@ export default async function SettingsPage({
       )}
 
       <div className="space-y-6">
+        {isCreator && (
+          <BusinessProfileCard
+            initial={{
+              clinicName: businessProfile?.clinicName ?? null,
+              phone: businessProfile?.phone ?? null,
+              services: businessProfile?.services ?? [],
+            }}
+          />
+        )}
+
         <CollaboratorsCard
           myRole={me.role!}
           incoming={serialize(invites.incoming)}

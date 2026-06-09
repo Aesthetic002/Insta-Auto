@@ -46,10 +46,53 @@ model User {
   sheetConnections  SheetConnection[]
   preferences       Preferences?
   posts             Post[]
+  businessProfile   BusinessProfile?
+  mediaAssets       MediaAsset[]
 
   // Editor relationships
   editorAssignmentsAsCreator EditorAssignment[] @relation("CreatorAssignments")
   editorAssignmentsAsEditor  EditorAssignment[] @relation("EditorAssignments")
+}
+
+// Reusable business data collected once (onboarding) so template fields
+// auto-fill instead of asking the user every time. One per user.
+// `services` holds up to ~8 standard offerings; templates that show a fixed
+// number (e.g. 4) take the leading entries. `extra` is an open JSON bag for
+// profession-specific fields we add later without a migration.
+model BusinessProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  clinicName  String?
+  phone       String?
+  logoUrl     String?  @db.Text
+  services    String[] @default([])
+  extra       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum MediaAssetKind {
+  IMAGE
+  VIDEO
+}
+
+// A saved photo or clip in the user's reusable media library. Template media
+// slots let the user pick from these instead of re-uploading the same clinic
+// photo each time. Populated from onboarding starter uploads + any new upload
+// made while filling a template.
+model MediaAsset {
+  id        String         @id @default(cuid())
+  userId    String
+  kind      MediaAssetKind
+  url       String         @db.Text
+  label     String?        // optional user caption, e.g. "Front desk"
+  createdAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
 }
 
 enum AssignmentStatus {

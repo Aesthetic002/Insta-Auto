@@ -36,13 +36,29 @@ type RenderState =
   | { kind: "done"; outputUrl: string; thumbnailUrl: string | null }
   | { kind: "error"; message: string };
 
-export function TemplateRender({ template }: { template: VideoTemplate }) {
+export interface MediaAssetLite {
+  id: string;
+  url: string;
+  label: string | null;
+}
+
+export function TemplateRender({
+  template,
+  prefillValues = {},
+  mediaAssets = [],
+}: {
+  template: VideoTemplate;
+  prefillValues?: Record<string, string>;
+  mediaAssets?: MediaAssetLite[];
+}) {
   const router = useRouter();
   const [slots, setSlots] = useState<Record<string, SlotState>>(
     Object.fromEntries(template.slots.map((s) => [s.id, { kind: "empty" } as SlotState]))
   );
   const [textValues, setTextValues] = useState<Record<string, string>>(
-    Object.fromEntries(template.textInputs.map((t) => [t.id, ""]))
+    Object.fromEntries(
+      template.textInputs.map((t) => [t.id, prefillValues[t.id] ?? ""])
+    )
   );
   const [render, setRender] = useState<RenderState>({ kind: "idle" });
 
@@ -120,6 +136,13 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
         ...p,
         [slotId]: { kind: "done", url, name: file.name },
       }));
+
+      // Save the clip to the reusable library (best-effort).
+      fetch("/api/media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, kind: "VIDEO", label: file.name }),
+      }).catch(() => {});
     } catch (err) {
       setSlots((p) => ({
         ...p,
@@ -129,6 +152,13 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
         },
       }));
     }
+  };
+
+  const pickFromLibrary = (slotId: string, asset: MediaAssetLite) => {
+    setSlots((p) => ({
+      ...p,
+      [slotId]: { kind: "done", url: asset.url, name: asset.label ?? "Saved clip" },
+    }));
   };
 
   const startRender = async () => {
@@ -213,7 +243,9 @@ export function TemplateRender({ template }: { template: VideoTemplate }) {
           maxSeconds={slot.maxSeconds ?? 6}
           state={slots[slot.id]}
           disabled={isRendering}
+          library={mediaAssets}
           onFile={(f) => uploadSlot(slot.id, f)}
+          onPick={(asset) => pickFromLibrary(slot.id, asset)}
           onClear={() =>
             setSlots((p) => ({ ...p, [slot.id]: { kind: "empty" } }))
           }
@@ -319,14 +351,18 @@ function SlotUploader({
   maxSeconds,
   state,
   disabled,
+  library,
   onFile,
+  onPick,
   onClear,
 }: {
   label: string;
   maxSeconds: number;
   state: SlotState;
   disabled: boolean;
+  library: MediaAssetLite[];
   onFile: (file: File) => void;
+  onPick: (asset: MediaAssetLite) => void;
   onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -334,6 +370,34 @@ function SlotUploader({
   return (
     <div className="space-y-2">
       <Label>{label} <span className="text-xs font-normal text-zinc-500">· up to {maxSeconds}s shown</span></Label>
+
+      {/* Saved clip library — pick instead of re-uploading */}
+      {library.length > 0 && state.kind !== "done" && (
+        <div className="space-y-1.5">
+          <div className="text-xs text-zinc-500">Pick from your library</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {library.map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(asset)}
+                className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-900 transition-all hover:ring-2 hover:ring-fuchsia-400 disabled:opacity-50 dark:border-zinc-700"
+                title={asset.label ?? "Saved clip"}
+              >
+                <video
+                  src={asset.url}
+                  className="h-full w-full object-cover"
+                  muted
+                  preload="metadata"
+                />
+                <FileVideo className="absolute h-5 w-5 text-white/70" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div
         onClick={() => !disabled && inputRef.current?.click()}
         className={cn(

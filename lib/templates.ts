@@ -25,11 +25,31 @@ export type TemplateCategory =
   | "EXPLAINER"        // service-explainer video
   | "TESTIMONIAL";     // patient review / 5-star card
 
+// Keys that pre-fill from the user's saved BusinessProfile. Adding a key here
+// means the profile form must collect it and the pre-fill map must resolve it.
+export type ProfileKey =
+  | "clinicName"
+  | "phone"
+  | "logoUrl"
+  | "service1"
+  | "service2"
+  | "service3"
+  | "service4";
+
+// Where a field's value comes from:
+//   "profile" — auto-filled from BusinessProfile (collected once at onboarding).
+//               Shown pre-filled + editable, but the user rarely touches it.
+//   "post"    — campaign-specific, entered fresh each time (with a placeholder
+//               as a sensible default). This is the default when omitted.
+export type FieldSource = "profile" | "post";
+
 export interface TemplateSlot {
   id: string;          // matches a Remotion prop, e.g. "clip1Url"
   label: string;       // shown above the uploader
   kind: SlotKind;
   maxSeconds?: number; // video slots only — clip duration cap
+  // Media slots always pull from the saved library (pick) or a new upload.
+  // No profileKey needed — the library picker handles reuse generically.
 }
 
 export interface TemplateTextInput {
@@ -37,6 +57,8 @@ export interface TemplateTextInput {
   label: string;
   maxChars: number;
   placeholder?: string;
+  source?: FieldSource;     // default "post"
+  profileKey?: ProfileKey;  // required when source === "profile"
 }
 
 export interface VideoTemplate {
@@ -311,13 +333,91 @@ const DENTAL_TEMPLATES: Template[] = [
 
 // ---------- Public API ----------
 
+// Inputs whose `id` exactly matches one of these auto-fill from the user's
+// BusinessProfile. Keeps the template definitions terse — we don't repeat
+// `source: "profile", profileKey: "..."` on every clinicName/phone/serviceN.
+const AUTO_PROFILE_KEYS: ProfileKey[] = [
+  "clinicName",
+  "phone",
+  "logoUrl",
+  "service1",
+  "service2",
+  "service3",
+  "service4",
+];
+
+function tagProfileFields(template: Template): Template {
+  const textInputs = template.textInputs.map((input) => {
+    if (input.source) return input; // respect explicit tagging
+    if ((AUTO_PROFILE_KEYS as string[]).includes(input.id)) {
+      return {
+        ...input,
+        source: "profile" as const,
+        profileKey: input.id as ProfileKey,
+      };
+    }
+    return input;
+  });
+  return { ...template, textInputs } as Template;
+}
+
 export const TEMPLATES: Template[] = [
   ...DENTAL_TEMPLATES,
   ...GENERIC_VIDEO_TEMPLATES,
-];
+].map(tagProfileFields);
 
 export function getTemplate(id: string): Template | undefined {
   return TEMPLATES.find((t) => t.id === id);
+}
+
+// Shape the studio form pre-fills from. Mirrors the BusinessProfile columns
+// plus the flattened services. Built server-side and passed to the client.
+export interface ProfilePrefill {
+  clinicName?: string | null;
+  phone?: string | null;
+  logoUrl?: string | null;
+  services?: string[];
+}
+
+// Given a template + a user's profile data, return the initial text values
+// keyed by input id. Profile-sourced fields get the saved value; everything
+// else is left empty (the form falls back to placeholders).
+export function buildPrefillValues(
+  template: Template,
+  profile: ProfilePrefill | null
+): Record<string, string> {
+  const values: Record<string, string> = {};
+  if (!profile) return values;
+
+  const serviceFromIndex = (i: number) => profile.services?.[i] ?? "";
+
+  for (const input of template.textInputs) {
+    if (input.source !== "profile" || !input.profileKey) continue;
+    switch (input.profileKey) {
+      case "clinicName":
+        if (profile.clinicName) values[input.id] = profile.clinicName;
+        break;
+      case "phone":
+        if (profile.phone) values[input.id] = profile.phone;
+        break;
+      case "logoUrl":
+        if (profile.logoUrl) values[input.id] = profile.logoUrl;
+        break;
+      case "service1":
+        if (serviceFromIndex(0)) values[input.id] = serviceFromIndex(0);
+        break;
+      case "service2":
+        if (serviceFromIndex(1)) values[input.id] = serviceFromIndex(1);
+        break;
+      case "service3":
+        if (serviceFromIndex(2)) values[input.id] = serviceFromIndex(2);
+        break;
+      case "service4":
+        if (serviceFromIndex(3)) values[input.id] = serviceFromIndex(3);
+        break;
+    }
+  }
+  return values;
 }
 
 export function listTemplatesForProfession(

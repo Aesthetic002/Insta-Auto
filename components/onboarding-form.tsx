@@ -15,18 +15,26 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type Role = "CREATOR" | "EDITOR";
 type Profession = "DENTAL"; // mirror of Prisma enum; expand alongside lib/templates.ts
 
-type Step = "role" | "profession";
+type Step = "role" | "profession" | "profile";
 
 export function OnboardingForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("role");
   const [role, setRole] = useState<Role | null>(null);
   const [profession, setProfession] = useState<Profession | null>(null);
+
+  // Business profile (creators only)
+  const [clinicName, setClinicName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [services, setServices] = useState<string[]>(["", "", "", ""]);
+
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -36,10 +44,22 @@ export function OnboardingForm() {
     setStep("profession");
   };
 
-  const submit = () => {
+  // After profession: creators go to the profile step, editors finish now.
+  const advanceFromProfession = () => {
+    if (!profession) return;
+    setError(null);
+    if (role === "CREATOR") {
+      setStep("profile");
+    } else {
+      finish();
+    }
+  };
+
+  const finish = (opts?: { skipProfile?: boolean }) => {
     if (!role || !profession) return;
     setError(null);
     startTransition(async () => {
+      // 1. Save role + profession (marks user onboarded).
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,6 +70,25 @@ export function OnboardingForm() {
         setError(json.message ?? "Could not save. Try again.");
         return;
       }
+
+      // 2. For creators, save the business profile (unless they skipped).
+      if (role === "CREATOR" && !opts?.skipProfile) {
+        const cleanServices = services
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        await fetch("/api/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clinicName: clinicName.trim(),
+            phone: phone.trim(),
+            services: cleanServices,
+          }),
+        }).catch(() => {
+          // Non-fatal: profile can be filled later in settings.
+        });
+      }
+
       router.push("/dashboard");
       router.refresh();
     });
@@ -94,6 +133,7 @@ export function OnboardingForm() {
   }
 
   // Profession step
+  if (step === "profession")
   return (
     <div className="space-y-6">
       <button
@@ -151,8 +191,117 @@ export function OnboardingForm() {
 
       <div className="flex justify-end">
         <Button
-          onClick={submit}
+          onClick={advanceFromProfession}
           disabled={!profession || pending}
+          size="lg"
+          className="rounded-full px-7 shadow-lg shadow-rose-500/20"
+        >
+          {pending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Setting up…
+            </>
+          ) : role === "CREATOR" ? (
+            "Continue"
+          ) : (
+            "Finish"
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Profile step (creators only)
+  return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={() => setStep("profession")}
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">
+          Tell us about your clinic
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          We&apos;ll use this to auto-fill your templates so you never type it
+          twice. You can change it anytime in Settings.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="ob-clinic">Clinic name</Label>
+          <Input
+            id="ob-clinic"
+            value={clinicName}
+            onChange={(e) => setClinicName(e.target.value)}
+            placeholder="Bright Smile Dental"
+            maxLength={40}
+            disabled={pending}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ob-phone">Phone</Label>
+          <Input
+            id="ob-phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 555-123-4567"
+            maxLength={20}
+            disabled={pending}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Your main services</Label>
+          <p className="text-xs text-zinc-500">
+            Up to four. These pre-fill into service-list templates.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {services.map((s, i) => (
+              <Input
+                key={i}
+                value={s}
+                onChange={(e) =>
+                  setServices((prev) => {
+                    const next = [...prev];
+                    next[i] = e.target.value;
+                    return next;
+                  })
+                }
+                placeholder={
+                  ["Teeth Whitening", "Braces & Aligners", "Dental Implants", "Regular Checkups"][i]
+                }
+                maxLength={30}
+                disabled={pending}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={() => finish({ skipProfile: true })}
+          disabled={pending}
+          className="text-zinc-500"
+        >
+          Skip for now
+        </Button>
+        <Button
+          onClick={() => finish()}
+          disabled={pending}
           size="lg"
           className="rounded-full px-7 shadow-lg shadow-rose-500/20"
         >

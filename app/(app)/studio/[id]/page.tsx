@@ -1,8 +1,12 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ArrowLeft } from "lucide-react";
 
-import { getTemplate } from "@/lib/templates";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { resolveActiveCreator } from "@/lib/permissions";
+import { buildPrefillValues, getTemplate } from "@/lib/templates";
 import { TemplateRender } from "@/components/template-render";
 import { ImageTemplateRender } from "@/components/image-template-render";
 
@@ -14,6 +18,34 @@ export default async function StudioTemplatePage({
   const { id } = await params;
   const template = getTemplate(id);
   if (!template) notFound();
+
+  const session = await auth();
+  if (!session?.user?.id) redirect("/");
+
+  // Resolve the active creator's profile + media library so the form pre-fills.
+  const cookieStore = await cookies();
+  const ctx = await resolveActiveCreator(
+    session.user.id,
+    cookieStore.get("active_creator")?.value
+  );
+
+  const profile = ctx
+    ? await db.businessProfile.findUnique({ where: { userId: ctx.creatorId } })
+    : null;
+
+  const mediaAssets = ctx
+    ? await db.mediaAsset.findMany({
+        where: {
+          userId: ctx.creatorId,
+          kind: template.kind === "video" ? "VIDEO" : "IMAGE",
+        },
+        orderBy: { createdAt: "desc" },
+        take: 60,
+        select: { id: true, url: true, label: true },
+      })
+    : [];
+
+  const prefillValues = buildPrefillValues(template, profile);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -30,9 +62,17 @@ export default async function StudioTemplatePage({
       <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[1fr_320px]">
         <div>
           {template.kind === "video" ? (
-            <TemplateRender template={template} />
+            <TemplateRender
+              template={template}
+              prefillValues={prefillValues}
+              mediaAssets={mediaAssets}
+            />
           ) : (
-            <ImageTemplateRender template={template} />
+            <ImageTemplateRender
+              template={template}
+              prefillValues={prefillValues}
+              mediaAssets={mediaAssets}
+            />
           )}
         </div>
 

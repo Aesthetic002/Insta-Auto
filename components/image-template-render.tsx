@@ -42,13 +42,29 @@ type RenderState =
   | { kind: "done"; outputUrl: string; thumbnailUrl: string | null }
   | { kind: "error"; message: string };
 
-export function ImageTemplateRender({ template }: { template: ImageTemplate }) {
+export interface MediaAssetLite {
+  id: string;
+  url: string;
+  label: string | null;
+}
+
+export function ImageTemplateRender({
+  template,
+  prefillValues = {},
+  mediaAssets = [],
+}: {
+  template: ImageTemplate;
+  prefillValues?: Record<string, string>;
+  mediaAssets?: MediaAssetLite[];
+}) {
   const router = useRouter();
   const [slots, setSlots] = useState<Record<string, SlotState>>(
     Object.fromEntries(template.slots.map((s) => [s.id, { kind: "empty" } as SlotState]))
   );
   const [textValues, setTextValues] = useState<Record<string, string>>(
-    Object.fromEntries(template.textInputs.map((t) => [t.id, ""]))
+    Object.fromEntries(
+      template.textInputs.map((t) => [t.id, prefillValues[t.id] ?? ""])
+    )
   );
   const [render, setRender] = useState<RenderState>({ kind: "idle" });
 
@@ -126,6 +142,14 @@ export function ImageTemplateRender({ template }: { template: ImageTemplate }) {
         ...p,
         [slotId]: { kind: "done", url, name: file.name },
       }));
+
+      // Save to the reusable media library (best-effort) so it appears as a
+      // pickable option next time. De-dupe handled server-side.
+      fetch("/api/media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, kind: "IMAGE", label: file.name }),
+      }).catch(() => {});
     } catch (err) {
       setSlots((p) => ({
         ...p,
@@ -135,6 +159,13 @@ export function ImageTemplateRender({ template }: { template: ImageTemplate }) {
         },
       }));
     }
+  };
+
+  const pickFromLibrary = (slotId: string, asset: MediaAssetLite) => {
+    setSlots((p) => ({
+      ...p,
+      [slotId]: { kind: "done", url: asset.url, name: asset.label ?? "Saved photo" },
+    }));
   };
 
   const startRender = async () => {
@@ -224,7 +255,9 @@ export function ImageTemplateRender({ template }: { template: ImageTemplate }) {
           label={slot.label}
           state={slots[slot.id]}
           disabled={isRendering}
+          library={mediaAssets}
           onFile={(f) => uploadSlot(slot.id, f)}
+          onPick={(asset) => pickFromLibrary(slot.id, asset)}
           onClear={() =>
             setSlots((p) => ({ ...p, [slot.id]: { kind: "empty" } }))
           }
@@ -345,13 +378,17 @@ function ImageSlotUploader({
   label,
   state,
   disabled,
+  library,
   onFile,
+  onPick,
   onClear,
 }: {
   label: string;
   state: SlotState;
   disabled: boolean;
+  library: MediaAssetLite[];
   onFile: (file: File) => void;
+  onPick: (asset: MediaAssetLite) => void;
   onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -359,6 +396,33 @@ function ImageSlotUploader({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
+
+      {/* Saved library strip — pick instead of re-uploading */}
+      {library.length > 0 && state.kind !== "done" && (
+        <div className="space-y-1.5">
+          <div className="text-xs text-zinc-500">Pick from your library</div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {library.map((asset) => (
+              <button
+                key={asset.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(asset)}
+                className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-200 transition-all hover:ring-2 hover:ring-fuchsia-400 disabled:opacity-50 dark:border-zinc-700"
+                title={asset.label ?? "Saved photo"}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={asset.url}
+                  alt={asset.label ?? ""}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div
         onClick={() => !disabled && inputRef.current?.click()}
         className={cn(

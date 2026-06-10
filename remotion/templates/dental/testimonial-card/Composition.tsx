@@ -1,6 +1,7 @@
 import { AbsoluteFill, Img } from "remotion";
 import { z } from "zod";
 import { INTER } from "../../../fonts";
+import { ClinicLogo } from "../ClinicLogo";
 
 export const dentalTestimonialSchema = z.object({
   patientPhotoUrl: z.string(),
@@ -8,6 +9,7 @@ export const dentalTestimonialSchema = z.object({
   quote: z.string(),
   rating: z.number().int().min(1).max(5),
   clinicName: z.string(),
+  logoUrl: z.string().optional(),
 });
 
 export type DentalTestimonialProps = z.infer<typeof dentalTestimonialSchema>;
@@ -16,17 +18,6 @@ const LAVENDER_BG = "#9aa5e8";
 const LAVENDER_INK = "#3d4cb8";
 const NAVY = "#1a2766";
 const GOLD = "#fbbf24";
-
-function ToothMark({ size = 56 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <path
-        d="M28 14C20 14 14 22 14 32c0 8 4 14 6 22 1 6 0 14 2 22 2 6 6 10 10 10 4 0 6-4 8-12 1-6 2-10 6-10s5 4 6 10c2 8 4 12 8 12 4 0 8-4 10-10 2-8 1-16 2-22 2-8 6-14 6-22 0-10-6-18-14-18-6 0-10 4-18 4S34 14 28 14z"
-        fill={LAVENDER_INK}
-      />
-    </svg>
-  );
-}
 
 function Star({ filled }: { filled: boolean }) {
   return (
@@ -45,6 +36,7 @@ export function DentalTestimonial({
   quote,
   rating,
   clinicName,
+  logoUrl,
 }: DentalTestimonialProps) {
   return (
     <AbsoluteFill
@@ -84,37 +76,18 @@ export function DentalTestimonial({
           position: "absolute",
           top: 90,
           right: 86,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          color: LAVENDER_INK,
           backgroundColor: "rgba(255,255,255,0.92)",
           padding: "10px 18px",
           borderRadius: 14,
           boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
         }}
       >
-        <ToothMark size={36} />
-        <div
-          style={{
-            fontWeight: 800,
-            fontSize: 22,
-            letterSpacing: "0.1em",
-            lineHeight: 1.1,
-          }}
-        >
-          {clinicName.toUpperCase().split(" ")[0]}
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              opacity: 0.7,
-              letterSpacing: "0.2em",
-            }}
-          >
-            CLINIC
-          </div>
-        </div>
+        <ClinicLogo
+          logoUrl={logoUrl}
+          clinicName={clinicName}
+          color={LAVENDER_INK}
+          size={36}
+        />
       </div>
 
       {/* Left white card with quote */}

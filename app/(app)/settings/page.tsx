@@ -137,6 +137,7 @@ export default async function SettingsPage({
               clinicName: businessProfile?.clinicName ?? null,
               phone: businessProfile?.phone ?? null,
               services: businessProfile?.services ?? [],
+              logoUrl: businessProfile?.logoUrl ?? null,
             }}
           />
         )}

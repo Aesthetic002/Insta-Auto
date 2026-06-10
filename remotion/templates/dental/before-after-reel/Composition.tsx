@@ -9,12 +9,14 @@ import {
 } from "remotion";
 import { z } from "zod";
 import { INTER } from "../../../fonts";
+import { ClinicLogo } from "../ClinicLogo";
 
 export const dentalBeforeAfterSchema = z.object({
   beforeUrl: z.string(),
   afterUrl: z.string(),
   treatment: z.string(),
   clinicName: z.string(),
+  logoUrl: z.string().optional(),
 });
 
 export type DentalBeforeAfterProps = z.infer<typeof dentalBeforeAfterSchema>;
@@ -60,16 +62,6 @@ function PlusPattern() {
   );
 }
 
-function ToothMark({ size = 64 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <path
-        d="M28 14C20 14 14 22 14 32c0 8 4 14 6 22 1 6 0 14 2 22 2 6 6 10 10 10 4 0 6-4 8-12 1-6 2-10 6-10s5 4 6 10c2 8 4 12 8 12 4 0 8-4 10-10 2-8 1-16 2-22 2-8 6-14 6-22 0-10-6-18-14-18-6 0-10 4-18 4S34 14 28 14z"
-        fill="white"
-      />
-    </svg>
-  );
-}
 
 function Tag({
   text,
@@ -112,31 +104,23 @@ function Tag({
 function Footer({
   clinicName,
   treatment,
+  logoUrl,
 }: {
   clinicName: string;
   treatment: string;
+  logoUrl?: string;
 }) {
   return (
     <>
       {/* Clinic logo bottom-left */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 80,
-          left: 80,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          color: "white",
-          fontFamily: INTER,
-        }}
-      >
-        <ToothMark size={44} />
-        <div style={{ lineHeight: 1.1 }}>
-          <div style={{ fontWeight: 900, fontSize: 26, letterSpacing: "0.06em" }}>
-            {clinicName.toUpperCase()}
-          </div>
-        </div>
+      <div style={{ position: "absolute", bottom: 80, left: 80 }}>
+        <ClinicLogo
+          logoUrl={logoUrl}
+          clinicName={clinicName}
+          color="white"
+          size={44}
+          showText
+        />
       </div>
 
       {/* Treatment bottom-right */}
@@ -166,6 +150,7 @@ function ClipPanel({
   tagTextColor,
   treatment,
   clinicName,
+  logoUrl,
 }: {
   src: string;
   tag: string;
@@ -173,6 +158,7 @@ function ClipPanel({
   tagTextColor: string;
   treatment: string;
   clinicName: string;
+  logoUrl?: string;
 }) {
   return (
     <AbsoluteFill style={{ backgroundColor: NAVY_DEEP }}>
@@ -207,7 +193,7 @@ function ClipPanel({
       </div>
 
       <Tag text={tag} color={tagColor} textColor={tagTextColor} />
-      <Footer treatment={treatment} clinicName={clinicName} />
+      <Footer treatment={treatment} clinicName={clinicName} logoUrl={logoUrl} />
     </AbsoluteFill>
   );
 }
@@ -231,6 +217,7 @@ export function DentalBeforeAfter({
   afterUrl,
   treatment,
   clinicName,
+  logoUrl,
 }: DentalBeforeAfterProps) {
   return (
     <AbsoluteFill>
@@ -242,6 +229,7 @@ export function DentalBeforeAfter({
           tagTextColor={NAVY_DEEP}
           treatment={treatment}
           clinicName={clinicName}
+          logoUrl={logoUrl}
         />
       </Sequence>
       <Sequence from={BEFORE_FRAMES} durationInFrames={SWIPE_FRAMES}>
@@ -258,6 +246,7 @@ export function DentalBeforeAfter({
           tagTextColor="white"
           treatment={treatment}
           clinicName={clinicName}
+          logoUrl={logoUrl}
         />
       </Sequence>
     </AbsoluteFill>

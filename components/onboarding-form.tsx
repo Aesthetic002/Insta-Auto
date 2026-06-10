@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoUploader } from "@/components/logo-uploader";
 import { cn } from "@/lib/utils";
 
 type Role = "CREATOR" | "EDITOR";
@@ -34,6 +35,7 @@ export function OnboardingForm() {
   const [clinicName, setClinicName] = useState("");
   const [phone, setPhone] = useState("");
   const [services, setServices] = useState<string[]>(["", "", "", ""]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -83,6 +85,7 @@ export function OnboardingForm() {
             clinicName: clinicName.trim(),
             phone: phone.trim(),
             services: cleanServices,
+            logoUrl,
           }),
         }).catch(() => {
           // Non-fatal: profile can be filled later in settings.
@@ -284,6 +287,8 @@ export function OnboardingForm() {
             ))}
           </div>
         </div>
+
+        <LogoUploader value={logoUrl} onChange={setLogoUrl} disabled={pending} />
       </div>
 
       {error && (

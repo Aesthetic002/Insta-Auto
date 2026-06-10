@@ -9,6 +9,7 @@ import {
 } from "remotion";
 import { z } from "zod";
 import { INTER } from "../../../fonts";
+import { ClinicLogo } from "../ClinicLogo";
 
 export const dentalServiceExplainerSchema = z.object({
   clipUrl: z.string(),
@@ -17,6 +18,7 @@ export const dentalServiceExplainerSchema = z.object({
   point2: z.string(),
   point3: z.string(),
   clinicName: z.string(),
+  logoUrl: z.string().optional(),
 });
 
 export type DentalServiceExplainerProps = z.infer<
@@ -29,17 +31,6 @@ const CREAM = "#f7faf9";
 
 const HOOK_FRAMES = 60;
 const BULLET_FRAMES = 90;
-
-function ToothMark({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <path
-        d="M28 14C20 14 14 22 14 32c0 8 4 14 6 22 1 6 0 14 2 22 2 6 6 10 10 10 4 0 6-4 8-12 1-6 2-10 6-10s5 4 6 10c2 8 4 12 8 12 4 0 8-4 10-10 2-8 1-16 2-22 2-8 6-14 6-22 0-10-6-18-14-18-6 0-10 4-18 4S34 14 28 14z"
-        fill="white"
-      />
-    </svg>
-  );
-}
 
 function HalftoneDots() {
   // Decorative halftone pattern in bottom-right corner.
@@ -68,7 +59,15 @@ function HalftoneDots() {
   );
 }
 
-function Hook({ text, clinicName }: { text: string; clinicName: string }) {
+function Hook({
+  text,
+  clinicName,
+  logoUrl,
+}: {
+  text: string;
+  clinicName: string;
+  logoUrl?: string;
+}) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 14, stiffness: 120 } });
@@ -86,33 +85,8 @@ function Hook({ text, clinicName }: { text: string; clinicName: string }) {
       }}
     >
       {/* Clinic logo top-left */}
-      <div
-        style={{
-          position: "absolute",
-          top: 80,
-          left: 80,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          color: "white",
-        }}
-      >
-        <ToothMark size={48} />
-        <div style={{ lineHeight: 1.05 }}>
-          <div style={{ fontWeight: 900, fontSize: 30, letterSpacing: "0.06em" }}>
-            {clinicName.toUpperCase().split(" ")[0]}
-          </div>
-          <div
-            style={{
-              fontWeight: 600,
-              fontSize: 18,
-              letterSpacing: "0.2em",
-              opacity: 0.85,
-            }}
-          >
-            CLINIC
-          </div>
-        </div>
+      <div style={{ position: "absolute", top: 80, left: 80 }}>
+        <ClinicLogo logoUrl={logoUrl} clinicName={clinicName} color="white" size={48} />
       </div>
 
       {/* Halftone in corner */}
@@ -221,12 +195,14 @@ function ClipWithBullets({
   point2,
   point3,
   clinicName,
+  logoUrl,
 }: {
   src: string;
   point1: string;
   point2: string;
   point3: string;
   clinicName: string;
+  logoUrl?: string;
 }) {
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
@@ -269,23 +245,9 @@ function ClipWithBullets({
           right: 0,
           display: "flex",
           justifyContent: "center",
-          alignItems: "center",
-          gap: 14,
-          color: "white",
-          fontFamily: INTER,
         }}
       >
-        <ToothMark size={36} />
-        <div
-          style={{
-            fontWeight: 800,
-            fontSize: 28,
-            letterSpacing: "0.06em",
-            textShadow: "0 2px 8px rgba(0,0,0,0.6)",
-          }}
-        >
-          {clinicName.toUpperCase()}
-        </div>
+        <ClinicLogo logoUrl={logoUrl} clinicName={clinicName} color="white" size={36} />
       </div>
     </AbsoluteFill>
   );
@@ -298,11 +260,12 @@ export function DentalServiceExplainer({
   point2,
   point3,
   clinicName,
+  logoUrl,
 }: DentalServiceExplainerProps) {
   return (
     <AbsoluteFill style={{ backgroundColor: CREAM }}>
       <Sequence from={0} durationInFrames={HOOK_FRAMES}>
-        <Hook text={hookLine} clinicName={clinicName} />
+        <Hook text={hookLine} clinicName={clinicName} logoUrl={logoUrl} />
       </Sequence>
       <Sequence from={HOOK_FRAMES} durationInFrames={BULLET_FRAMES * 3}>
         <ClipWithBullets
@@ -311,6 +274,7 @@ export function DentalServiceExplainer({
           point2={point2}
           point3={point3}
           clinicName={clinicName}
+          logoUrl={logoUrl}
         />
       </Sequence>
     </AbsoluteFill>

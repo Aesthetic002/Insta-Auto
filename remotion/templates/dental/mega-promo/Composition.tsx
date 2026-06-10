@@ -1,6 +1,7 @@
 import { AbsoluteFill, Img } from "remotion";
 import { z } from "zod";
 import { INTER } from "../../../fonts";
+import { ClinicLogo } from "../ClinicLogo";
 
 export const dentalMegaPromoSchema = z.object({
   imageUrl: z.string(),
@@ -13,6 +14,7 @@ export const dentalMegaPromoSchema = z.object({
   service4: z.string(),
   clinicName: z.string(),
   phone: z.string(),
+  logoUrl: z.string().optional(),
 });
 
 export type DentalMegaPromoProps = z.infer<typeof dentalMegaPromoSchema>;
@@ -21,17 +23,6 @@ const TEAL = "#3fb8b0";
 const TEAL_DEEP = "#1f7d7a";
 const TEAL_INK = "#0f4d4a";
 const CREAM = "#fafffd";
-
-function ToothMark({ size = 56 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <path
-        d="M28 14C20 14 14 22 14 32c0 8 4 14 6 22 1 6 0 14 2 22 2 6 6 10 10 10 4 0 6-4 8-12 1-6 2-10 6-10s5 4 6 10c2 8 4 12 8 12 4 0 8-4 10-10 2-8 1-16 2-22 2-8 6-14 6-22 0-10-6-18-14-18-6 0-10 4-18 4S34 14 28 14z"
-        fill="white"
-      />
-    </svg>
-  );
-}
 
 function HalftoneDots() {
   const dots: { x: number; y: number; r: number; opacity: number }[] = [];
@@ -97,6 +88,7 @@ export function DentalMegaPromo({
   service4,
   clinicName,
   phone,
+  logoUrl,
 }: DentalMegaPromoProps) {
   return (
     <AbsoluteFill
@@ -106,33 +98,8 @@ export function DentalMegaPromo({
       }}
     >
       {/* Logo top-left */}
-      <div
-        style={{
-          position: "absolute",
-          top: 80,
-          left: 80,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          color: "white",
-        }}
-      >
-        <ToothMark size={56} />
-        <div style={{ lineHeight: 1.05 }}>
-          <div style={{ fontWeight: 900, fontSize: 32, letterSpacing: "0.06em" }}>
-            {clinicName.toUpperCase().split(" ")[0]}
-          </div>
-          <div
-            style={{
-              fontWeight: 600,
-              fontSize: 18,
-              letterSpacing: "0.22em",
-              opacity: 0.9,
-            }}
-          >
-            CLINIC
-          </div>
-        </div>
+      <div style={{ position: "absolute", top: 80, left: 80 }}>
+        <ClinicLogo logoUrl={logoUrl} clinicName={clinicName} color="white" size={56} />
       </div>
 
       {/* Asymmetric photo cutout — middle/bottom-left, curved top-right edge */}

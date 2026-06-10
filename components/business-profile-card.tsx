@@ -7,12 +7,14 @@ import { Loader2, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoUploader } from "@/components/logo-uploader";
 
 interface Props {
   initial: {
     clinicName: string | null;
     phone: string | null;
     services: string[];
+    logoUrl: string | null;
   };
 }
 
@@ -24,6 +26,7 @@ export function BusinessProfileCard({ initial }: Props) {
     while (s.length < 4) s.push("");
     return s.slice(0, 4);
   });
+  const [logoUrl, setLogoUrl] = useState<string | null>(initial.logoUrl);
   const [pending, startTransition] = useTransition();
 
   const save = () => {
@@ -38,6 +41,7 @@ export function BusinessProfileCard({ initial }: Props) {
           clinicName: clinicName.trim(),
           phone: phone.trim(),
           services: cleanServices,
+          logoUrl,
         }),
       });
       if (!res.ok) {
@@ -110,6 +114,8 @@ export function BusinessProfileCard({ initial }: Props) {
             ))}
           </div>
         </div>
+
+        <LogoUploader value={logoUrl} onChange={setLogoUrl} disabled={pending} />
 
         <div className="flex justify-end">
           <Button onClick={save} disabled={pending} className="rounded-full px-6">

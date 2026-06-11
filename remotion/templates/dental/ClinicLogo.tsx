@@ -1,11 +1,14 @@
 import { Img } from "remotion";
 
-// Shared brand mark for dental templates. Renders the clinic's uploaded logo
-// (fit inside a fixed box, aspect ratio preserved) when `logoUrl` is provided;
-// otherwise falls back to a clean tooth glyph + the clinic name as text.
+// Shared brand mark for dental templates: an icon (the clinic's uploaded logo
+// when present, otherwise a tooth glyph) next to the clinic name. Both the
+// icon AND the name always show — an uploaded logo replaces only the tooth
+// glyph, never the clinic name text.
 //
 // `color` controls the tooth glyph + text color so each template can match
 // its palette (white on blue/teal, navy on cream, etc.).
+//
+// Set `showText={false}` for tight spots where only the icon should appear.
 
 export function ClinicLogo({
   logoUrl,
@@ -20,35 +23,34 @@ export function ClinicLogo({
   size?: number;
   showText?: boolean;
 }) {
-  if (logoUrl) {
-    // Logo provided: render it fit-in-box, no text (most uploaded logos
-    // already include the clinic name as a wordmark).
-    return (
-      <div
-        style={{
-          height: size + 24,
-          maxWidth: 360,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <Img
-          src={logoUrl}
-          style={{
-            height: "100%",
-            width: "auto",
-            maxWidth: 360,
-            objectFit: "contain",
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Fallback: tooth glyph + clinic name text.
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, color }}>
-      <ToothMark size={size} color={color} />
+      {logoUrl ? (
+        <div
+          style={{
+            height: size,
+            width: size,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Img
+            src={logoUrl}
+            style={{
+              maxHeight: size,
+              maxWidth: size,
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </div>
+      ) : (
+        <ToothMark size={size} color={color} />
+      )}
+
       {showText && (
         <div style={{ lineHeight: 1.05 }}>
           <div
@@ -68,7 +70,7 @@ export function ClinicLogo({
               opacity: 0.9,
             }}
           >
-            CLINIC
+            {clinicName.toUpperCase().split(" ").slice(1).join(" ") || "CLINIC"}
           </div>
         </div>
       )}

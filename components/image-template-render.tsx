@@ -71,9 +71,8 @@ export function ImageTemplateRender({
   const allSlotsReady = template.slots.every(
     (s) => slots[s.id]?.kind === "done"
   );
-  const allTextsReady = template.textInputs.every(
-    (t) => textValues[t.id]?.trim().length > 0
-  );
+  // Text fields are optional — blank ones fall back to placeholder defaults
+  // server-side. Only media slots gate the render button.
   const isRendering = render.kind === "rendering";
 
   const uploadSlot = async (slotId: string, file: File) => {
@@ -266,7 +265,10 @@ export function ImageTemplateRender({
 
       {template.textInputs.map((t) => (
         <div key={t.id} className="space-y-2">
-          <Label htmlFor={`txt-${t.id}`}>{t.label}</Label>
+          <Label htmlFor={`txt-${t.id}`}>
+            {t.label}{" "}
+            <span className="text-xs font-normal text-zinc-400">· optional</span>
+          </Label>
           {t.maxChars > 60 ? (
             <Textarea
               id={`txt-${t.id}`}
@@ -293,7 +295,11 @@ export function ImageTemplateRender({
             />
           )}
           <p className="text-xs text-zinc-500">
-            {textValues[t.id]?.length ?? 0} / {t.maxChars}
+            {textValues[t.id]?.trim()
+              ? `${textValues[t.id].length} / ${t.maxChars}`
+              : t.placeholder
+              ? `Leave blank to use "${t.placeholder}"`
+              : `${textValues[t.id]?.length ?? 0} / ${t.maxChars}`}
           </p>
         </div>
       ))}
@@ -357,7 +363,7 @@ export function ImageTemplateRender({
         <Button
           type="button"
           onClick={startRender}
-          disabled={!allSlotsReady || !allTextsReady || isRendering || render.kind === "done"}
+          disabled={!allSlotsReady || isRendering || render.kind === "done"}
           className="rounded-full px-5"
         >
           {isRendering ? (

@@ -37,20 +37,31 @@ export async function POST(request: Request) {
       );
     }
   }
+  // Text fields are optional: a blank field falls back to its placeholder so
+  // the template never renders an empty string. We only reject values that
+  // exceed the max length. Numeric-looking values (e.g. the testimonial star
+  // rating) are coerced to numbers so they satisfy the composition's zod
+  // schema, whether they came from the client or a placeholder default.
+  const resolvedText: Record<string, string | number> = {};
   for (const ti of template.textInputs) {
-    const v = inputs[ti.id];
-    if (typeof v !== "string" || v.trim().length === 0) {
-      return NextResponse.json(
-        { error: "invalid_input", field: ti.id },
-        { status: 400 }
-      );
-    }
-    if (v.length > ti.maxChars) {
+    const raw = inputs[ti.id];
+    const strValue =
+      (typeof raw === "string" || typeof raw === "number") &&
+      String(raw).trim().length > 0
+        ? String(raw)
+        : ti.placeholder ?? "";
+    if (strValue.length > ti.maxChars) {
       return NextResponse.json(
         { error: "too_long", field: ti.id },
         { status: 400 }
       );
     }
+    // Short fields that are a clean integer get coerced (rating, etc.).
+    const asNum = Number(strValue);
+    resolvedText[ti.id] =
+      ti.maxChars <= 2 && Number.isInteger(asNum) && strValue.length > 0
+        ? asNum
+        : strValue;
   }
 
   // Inject the clinic logo from the active creator's profile (if set) so
@@ -61,7 +72,7 @@ export async function POST(request: Request) {
     session.user.id,
     cookieStore.get("active_creator")?.value
   );
-  const finalInputs: Record<string, unknown> = { ...inputs };
+  const finalInputs: Record<string, unknown> = { ...inputs, ...resolvedText };
   if (ctx) {
     const profile = await db.businessProfile.findUnique({
       where: { userId: ctx.creatorId },

@@ -229,17 +229,15 @@ async function renderVideoJob(args: {
     outputLocation: outPath,
     inputProps: args.inputProps,
     onProgress,
-    // Memory caps so renders fit DO's 1GB container — see commit 75bcc18.
-    concurrency: 1,
-    offthreadVideoCacheSizeInBytes: 300 * 1024 * 1024,
+    // Render tuning. Defaults are sized for a 2GB container; override via env
+    // if the instance size changes. Concurrency 2 roughly halves wall-clock
+    // time vs 1, and the bigger video cache means fewer re-fetches of the
+    // source clip (which was the proxy-timeout culprit on 1GB).
+    concurrency: Number(process.env.REMOTION_CONCURRENCY ?? 2),
+    offthreadVideoCacheSizeInBytes:
+      Number(process.env.REMOTION_VIDEO_CACHE_MB ?? 512) * 1024 * 1024,
     chromiumOptions: { gl: "swiftshader" },
-    // Bump per-frame delayRender timeout from the 28s default. DO's egress
-    // + swiftshader decoding can take ~30-60s to seek into a large Cloudinary
-    // mp4; 90s gives the headroom without making truly hung renders take
-    // forever to fail.
-    timeoutInMilliseconds: 90_000,
-    // Verbose logs so we can see what Chromium / the proxy are actually
-    // doing on DO. Visible in DO Runtime Logs as `[render <id>] ...`.
+    timeoutInMilliseconds: 120_000,
     logLevel: "verbose",
   });
 

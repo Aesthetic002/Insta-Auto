@@ -75,7 +75,7 @@ export default async function AppLayout({
           <Sparkles className="h-4 w-4 text-white" />
         </div>
         <span className="font-playfair text-xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-50">
-          Anvaya
+          Promote
         </span>
       </Link>
 

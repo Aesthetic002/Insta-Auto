@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       {
         error: "user_not_found",
         message:
-          "That email isn't on Reels Bot yet. Ask them to sign in first, then invite.",
+          "That email isn't on Promote yet. Ask them to sign in first, then invite.",
       },
       { status: 404 }
     );

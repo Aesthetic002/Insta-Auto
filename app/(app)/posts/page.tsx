@@ -152,7 +152,7 @@ function EmptyState() {
       </div>
       <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">No posts yet</h2>
       <p className="mx-auto mt-2 max-w-xs text-sm text-zinc-500 dark:text-zinc-400">
-        Upload a video or image and Anvaya will save it as a draft — captions and scheduling come next.
+        Pick a template or upload your own, and Promote will save it as a draft — captions and scheduling come next.
       </p>
       <Link
         href="/posts/new"

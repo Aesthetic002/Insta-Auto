@@ -25,7 +25,7 @@ export function approvalEmailHtml(input: ApprovalEmailInput): string {
       <tr><td align="center">
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#fff;border-radius:16px;border:1px solid #e4e4e7;overflow:hidden;">
           <tr><td style="padding:24px 28px 8px 28px;">
-            <div style="font-size:13px;color:#a1a1aa;letter-spacing:0.04em;text-transform:uppercase;">Reels Bot · Approval needed</div>
+            <div style="font-size:13px;color:#a1a1aa;letter-spacing:0.04em;text-transform:uppercase;">Promote · Approval needed</div>
             <h1 style="margin:8px 0 0 0;font-size:22px;line-height:1.3;color:#18181b;">
               Hi ${escape(input.recipientName ?? "there")}, please review this reel.
             </h1>

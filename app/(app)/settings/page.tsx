@@ -156,7 +156,7 @@ export default async function SettingsPage({
             <header className="border-b border-zinc-100 px-6 py-5 dark:border-zinc-800">
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Connected accounts</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Anvaya publishes across platforms via their official APIs. Connect one or more accounts below.
+                Promote publishes across platforms via their official APIs. Connect one or more accounts below.
               </p>
             </header>
 

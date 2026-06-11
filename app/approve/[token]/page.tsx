@@ -139,7 +139,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-rose-500 text-white shadow-sm shadow-rose-500/30">
           <Sparkles className="h-4 w-4" />
         </div>
-        Anvaya
+        Promote
       </div>
       {children}
     </main>

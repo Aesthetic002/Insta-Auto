@@ -22,9 +22,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Anvaya — Social media automation",
+  title: "Promote — Marketing on autopilot",
   description:
-    "Plan, approve and auto-publish across Instagram, LinkedIn, Facebook and Pinterest with AI captions, scheduling, and email approvals.",
+    "Profession-specific ad templates, done-for-you. Pick a template, drop in your photos, and auto-publish across Instagram, Facebook, LinkedIn and Pinterest with AI captions, scheduling, and email approvals.",
 };
 
 export default function RootLayout({

@@ -24,7 +24,7 @@ export function MobileNav({ children }: { children: React.ReactNode }) {
         <div className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-rose-500 text-white shadow-sm shadow-rose-500/30">
           <Sparkles className="h-3.5 w-3.5" />
         </div>
-        <span className="font-playfair text-lg font-semibold tracking-wide">Anvaya</span>
+        <span className="font-playfair text-lg font-semibold tracking-wide">Promote</span>
       </Link>
 
       <Sheet open={open} onOpenChange={setOpen}>

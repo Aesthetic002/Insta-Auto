@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-rose-500 text-white shadow-sm shadow-rose-500/30">
           <Sparkles className="h-4 w-4" />
         </div>
-        Reels Bot
+        Promote
       </div>
 
       <div className="w-full max-w-xl">
@@ -31,7 +31,7 @@ export default async function OnboardingPage() {
             {session.user.name?.split(" ")[0] ?? "there"} 👋
           </h1>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            How will you use Reels Bot? You can change this later in settings.
+            How will you use Promote? You can change this later in settings.
           </p>
         </div>
         <OnboardingForm />

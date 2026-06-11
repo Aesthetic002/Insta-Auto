@@ -76,7 +76,7 @@ export default function Home() {
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <span className="font-playfair text-xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-50">
-              Anvaya
+              Promote
             </span>
           </Link>
 
@@ -110,7 +110,7 @@ export default function Home() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fuchsia-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-fuchsia-500" />
           </span>
-          Multi-platform social scheduling — IG · FB · LinkedIn · Pinterest
+          Done-for-you marketing for professionals — starting with dental
         </motion.div>
 
         <motion.h1
@@ -119,11 +119,11 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-4xl text-balance text-5xl font-semibold tracking-tight text-zinc-900 sm:text-6xl md:text-7xl dark:text-zinc-50"
         >
-          Your content,{" "}
+          Marketing on{" "}
           <span className="bg-gradient-to-r from-fuchsia-600 via-rose-500 to-orange-400 bg-clip-text text-transparent">
-            everywhere
+            autopilot
           </span>
-          , on autopilot.
+          .
         </motion.h1>
 
         <motion.p
@@ -132,8 +132,9 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-zinc-500 dark:text-zinc-400"
         >
-          Upload once. AI writes the caption. You approve by email or dashboard.
-          Anvaya publishes to every platform — on schedule, without the duct tape.
+          Pick a template built for your profession. Drop in your photos.
+          Promote renders a polished ad and schedules it across every platform —
+          no designer, no agency, no fuss.
         </motion.p>
 
         <motion.div
@@ -236,7 +237,7 @@ export default function Home() {
                 Ready to stop posting manually?
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-white/80">
-                Join creators who use Anvaya to plan, approve, and publish across every platform — automatically.
+                Join professionals who use Promote to design, approve, and publish ads across every platform — automatically.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                 {authed ? (
@@ -262,10 +263,10 @@ export default function Home() {
             <div className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-fuchsia-500 to-rose-500">
               <Sparkles className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="font-playfair text-sm font-semibold text-zinc-700 dark:text-zinc-300">Anvaya</span>
+            <span className="font-playfair text-sm font-semibold text-zinc-700 dark:text-zinc-300">Promote</span>
           </div>
           <p className="text-xs text-zinc-400">
-            © {new Date().getFullYear()} Anvaya. Not affiliated with Meta, LinkedIn, or Pinterest.
+            © {new Date().getFullYear()} Promote. Not affiliated with Meta, LinkedIn, or Pinterest.
           </p>
           <div className="flex items-center gap-4 text-xs text-zinc-500">
             <a href="#" className="hover:text-zinc-900 dark:hover:text-zinc-100">Privacy</a>
@@ -319,7 +320,7 @@ const features = [
   {
     icon: <UploadCloud className="h-5 w-5" />,
     title: "Upload once",
-    body: "Drop a video or image. Anvaya handles the rest — resize, format, and queue across all platforms.",
+    body: "Drop in your photos or clips. Promote handles the rest — design, resize, format, and queue across all platforms.",
     gradient: "from-fuchsia-500/15 to-rose-500/15",
     iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
     ring: "ring-fuchsia-500/20",
@@ -361,7 +362,7 @@ const steps = [
   },
   {
     title: "Approve & ship",
-    body: "Approve from your inbox or the dashboard. Anvaya publishes through each platform's API — on time, every time.",
+    body: "Approve from your inbox or the dashboard. Promote publishes through each platform's API — on time, every time.",
   },
 ];
 

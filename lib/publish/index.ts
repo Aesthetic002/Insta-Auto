@@ -173,15 +173,30 @@ async function sendPublishedEmail(
   }
 }
 
-// Legacy single-account path: used when PostTarget rows don't exist (old posts).
+// Legacy single-account path: used when PostTarget rows don't exist (old posts
+// and the common "publish to one account" flow).
 export async function publishPost(postId: string): Promise<PublishResult> {
   const post = await db.post.findUnique({ where: { id: postId }, include: { socialAccount: true } });
   if (!post) throw new Error("Post not found");
   if (!post.socialAccount) throw new Error("No social account selected for this post");
   if (!post.caption) throw new Error("Caption required before publishing");
 
-  return dispatchToAccount(
+  const result = await dispatchToAccount(
     { caption: post.caption, mediaUrls: post.mediaUrls, mediaUrl: post.mediaUrl, mediaType: post.mediaType },
     post.socialAccount.id
   );
+
+  // Notify the creator (best-effort). The dispatch succeeding means the
+  // platform accepted the post, so we send here rather than relying on the
+  // caller to persist first.
+  void sendPublishedEmail(post.userId, postId, new Date(), [
+    {
+      platform: post.socialAccount.platform,
+      accountName: post.socialAccount.displayName ?? null,
+      status: "posted",
+      url: result.platformUrl,
+    },
+  ]);
+
+  return result;
 }

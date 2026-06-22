@@ -43,7 +43,3 @@ next-env.d.ts
 
 # prisma generated client (default location)
 /node_modules/.prisma
-
-# remotion bundle cache + per-render mp4s (preview MP4s in /public/template-previews ARE committed)
-.remotion
-/out/renders

@@ -21,24 +21,16 @@ enum UserRole {
   EDITOR
 }
 
-// Promote scales to many professions over time. Onboarding asks the user which
-// one they are so the /studio gallery can surface only relevant templates.
-// Add new values here as we expand beyond dental.
-enum Profession {
-  DENTAL
-}
-
 model User {
-  id            String      @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String      @unique
+  email         String    @unique
   emailVerified DateTime?
   image         String?
-  role          UserRole?   // null until onboarded
-  profession    Profession? // null until profession step of onboarding
-  onboarded     Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  role          UserRole? // null until onboarded
+  onboarded     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   accounts          Account[]
   sessions          Session[]
@@ -46,53 +38,10 @@ model User {
   sheetConnections  SheetConnection[]
   preferences       Preferences?
   posts             Post[]
-  businessProfile   BusinessProfile?
-  mediaAssets       MediaAsset[]
 
   // Editor relationships
   editorAssignmentsAsCreator EditorAssignment[] @relation("CreatorAssignments")
   editorAssignmentsAsEditor  EditorAssignment[] @relation("EditorAssignments")
-}
-
-// Reusable business data collected once (onboarding) so template fields
-// auto-fill instead of asking the user every time. One per user.
-// `services` holds up to ~8 standard offerings; templates that show a fixed
-// number (e.g. 4) take the leading entries. `extra` is an open JSON bag for
-// profession-specific fields we add later without a migration.
-model BusinessProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  clinicName  String?
-  phone       String?
-  logoUrl     String?  @db.Text
-  services    String[] @default([])
-  extra       Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum MediaAssetKind {
-  IMAGE
-  VIDEO
-}
-
-// A saved photo or clip in the user's reusable media library. Template media
-// slots let the user pick from these instead of re-uploading the same clinic
-// photo each time. Populated from onboarding starter uploads + any new upload
-// made while filling a template.
-model MediaAsset {
-  id        String         @id @default(cuid())
-  userId    String
-  kind      MediaAssetKind
-  url       String         @db.Text
-  label     String?        // optional user caption, e.g. "Front desk"
-  createdAt DateTime       @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, kind, createdAt])
 }
 
 enum AssignmentStatus {
@@ -326,40 +275,6 @@ model PostTarget {
 
   @@unique([postId, socialAccountId])
   @@index([postId])
-}
-
-enum RenderStatus {
-  QUEUED
-  RENDERING
-  UPLOADING
-  DONE
-  FAILED
-}
-
-enum RenderKind {
-  VIDEO   // Rendered as mp4 via Remotion's renderMedia
-  IMAGE   // Rendered as png/jpg via Remotion's renderStill
-}
-
-// One render of a code-defined template. Template definitions live in
-// /remotion/templates/* (see lib/templates.ts registry) — `templateId` is the
-// slug from that registry, not a foreign key.
-model RenderJob {
-  id           String       @id @default(cuid())
-  userId       String
-  templateId   String
-  kind         RenderKind   @default(VIDEO) // matches the template's TemplateKind
-  inputs       Json         // matches template props
-  status       RenderStatus @default(QUEUED)
-  outputUrl    String?      @db.Text
-  thumbnailUrl String?      @db.Text
-  errorMessage String?      @db.Text
-  createdAt    DateTime     @default(now())
-  startedAt    DateTime?
-  completedAt  DateTime?
-
-  @@index([userId, createdAt])
-  @@index([status])
 }
 
 enum ApprovalAction {

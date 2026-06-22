@@ -8,15 +8,7 @@ import { PostUploader } from "@/components/post-uploader";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export default async function NewPostPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    mediaUrl?: string;
-    thumbnailUrl?: string;
-    kind?: "video" | "image";
-  }>;
-}) {
+export default async function NewPostPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
@@ -34,28 +26,16 @@ export default async function NewPostPage({
     );
   }
 
-  const sp = await searchParams;
-  const prefill =
-    sp.mediaUrl && sp.mediaUrl.startsWith("http")
-      ? {
-          mediaUrl: sp.mediaUrl,
-          thumbnailUrl: sp.thumbnailUrl,
-          kind: sp.kind === "image" ? ("image" as const) : ("video" as const),
-        }
-      : undefined;
-
   return (
     <Wrap>
       <h1 className="text-3xl font-semibold tracking-tight">New post</h1>
       <p className="mt-1 text-sm text-zinc-500">
-        {prefill
-          ? `Your rendered ${prefill.kind} is ready. Add an outline and save as a draft.`
-          : ctx.isOwn
+        {ctx.isOwn
           ? "Upload a video or photos and describe what it's about. We'll save it as a draft you can review and schedule later."
           : "Upload to the creator's draft queue. They'll review, schedule and publish."}
       </p>
       <div className="mt-8">
-        <PostUploader prefill={prefill} />
+        <PostUploader />
       </div>
     </Wrap>
   );

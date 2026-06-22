@@ -36,17 +36,7 @@ interface PhotoFile {
   previewUrl: string;
 }
 
-interface PostUploaderProps {
-  prefill?: {
-    mediaUrl: string;
-    thumbnailUrl?: string;
-    // "video" (default) flows into mediaType=VIDEO. "image" flows into
-    // mediaType=PHOTO so the same draft pipeline handles rendered images.
-    kind?: "video" | "image";
-  };
-}
-
-export function PostUploader({ prefill }: PostUploaderProps = {}) {
+export function PostUploader() {
   const router = useRouter();
   const videoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -178,53 +168,16 @@ export function PostUploader({ prefill }: PostUploaderProps = {}) {
     }
 
     try {
-      // Prefill from /studio (rendered template). For image kind we route into
-      // mediaType=PHOTO so the existing photo-post flow handles it.
-      if (prefill && prefill.kind === "image") {
-        const mediaUrl = prefill.mediaUrl;
-        const thumbnailUrl = prefill.thumbnailUrl ?? mediaUrl;
-        setState({ kind: "saving" });
-        const res = await fetch("/api/posts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mediaUrl,
-            mediaUrls: [mediaUrl],
-            thumbnailUrl,
-            outline,
-            mediaType: "PHOTO",
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to save");
-        toast.success("Saved as draft. Add a caption next.");
-        router.push("/posts");
-        router.refresh();
-        return;
-      }
-
       if (mode === "VIDEO") {
-        let videoUrl: string;
-        let thumbnailUrl: string;
+        if (!videoFile) return setState({ kind: "error", message: "Pick a video first." });
 
-        if (prefill) {
-          videoUrl = prefill.mediaUrl;
-          thumbnailUrl =
-            prefill.thumbnailUrl ??
-            videoUrl
-              .replace("/video/upload/", "/video/upload/so_0,w_400,h_400,c_fill/")
-              .replace(/\.[^.]+$/, ".jpg");
-        } else {
-          if (!videoFile) return setState({ kind: "error", message: "Pick a video first." });
-
-          const signed = await getSignature("video");
-          videoUrl = await uploadToCloudinary(videoFile, signed, (pct) =>
-            setState({ kind: "uploading", percent: pct, current: 1, total: 1 })
-          );
-          thumbnailUrl = videoUrl
-            .replace("/video/upload/", "/video/upload/so_0,w_400,h_400,c_fill/")
-            .replace(/\.[^.]+$/, ".jpg");
-        }
+        const signed = await getSignature("video");
+        const videoUrl = await uploadToCloudinary(videoFile, signed, (pct) =>
+          setState({ kind: "uploading", percent: pct, current: 1, total: 1 })
+        );
+        const thumbnailUrl = videoUrl
+          .replace("/video/upload/", "/video/upload/so_0,w_400,h_400,c_fill/")
+          .replace(/\.[^.]+$/, ".jpg");
 
         setState({ kind: "saving" });
         const res = await fetch("/api/posts", {
@@ -274,59 +227,37 @@ export function PostUploader({ prefill }: PostUploaderProps = {}) {
     }
   };
 
-  const hasMedia = mode === "VIDEO" ? !!videoFile || !!prefill : photos.length > 0;
+  const hasMedia = mode === "VIDEO" ? !!videoFile : photos.length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Mode toggle — hidden when a rendered video is pre-attached */}
-      {!prefill && (
-        <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
-          {(["VIDEO", "PHOTO"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setMode(m); setState({ kind: "idle" }); }}
-              disabled={isWorking}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
-                mode === m
-                  ? "bg-white shadow-sm text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50"
-                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              )}
-            >
-              {m === "VIDEO" ? (
-                <FileVideo className="h-4 w-4" />
-              ) : (
-                <ImagePlus className="h-4 w-4" />
-              )}
-              {m === "VIDEO" ? "Video" : "Photos"}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Mode toggle */}
+      <div className="flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+        {(["VIDEO", "PHOTO"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => { setMode(m); setState({ kind: "idle" }); }}
+            disabled={isWorking}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
+              mode === m
+                ? "bg-white shadow-sm text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50"
+                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            )}
+          >
+            {m === "VIDEO" ? (
+              <FileVideo className="h-4 w-4" />
+            ) : (
+              <ImagePlus className="h-4 w-4" />
+            )}
+            {m === "VIDEO" ? "Video" : "Photos"}
+          </button>
+        ))}
+      </div>
 
       {/* Drop zone */}
-      {prefill ? (
-        <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-          <div className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-            Rendered {prefill.kind === "image" ? "image" : "video"} from template
-          </div>
-          {prefill.kind === "image" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={prefill.mediaUrl}
-              alt="Rendered template"
-              className="w-full max-w-xs rounded-xl"
-            />
-          ) : (
-            <video
-              src={prefill.mediaUrl}
-              controls
-              className="w-full max-w-xs rounded-xl"
-            />
-          )}
-        </div>
-      ) : mode === "VIDEO" ? (
+      {mode === "VIDEO" ? (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}

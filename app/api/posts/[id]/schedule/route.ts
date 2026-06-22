@@ -89,6 +89,40 @@ export async function POST(
   return NextResponse.json({ requiresApproval: false });
 }
 
+// Lightweight reschedule (drag-and-drop on the calendar): move the time of a
+// post that's already scheduled or pending approval, without re-running the
+// approval flow or changing its status.
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+
+  const post = await db.post.findUnique({ where: { id } });
+  if (!post) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!(await isCreatorOf(session.user.id, post.userId)))
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  if (post.status !== "SCHEDULED" && post.status !== "PENDING_APPROVAL") {
+    return NextResponse.json(
+      { error: "not_reschedulable", message: "Only scheduled posts can be moved." },
+      { status: 400 }
+    );
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
+  if (!scheduledAt || isNaN(scheduledAt.getTime()))
+    return NextResponse.json({ error: "invalid_date" }, { status: 400 });
+
+  await db.post.update({ where: { id }, data: { scheduledAt } });
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }

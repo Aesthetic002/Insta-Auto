@@ -48,6 +48,9 @@ export default async function CalendarPage({
       status: true,
       scheduledAt: true,
       postedAt: true,
+      thumbnailUrl: true,
+      mediaType: true,
+      targets: { select: { socialAccount: { select: { platform: true } } } },
     },
   });
 
@@ -55,11 +58,21 @@ export default async function CalendarPage({
   for (const p of posts) {
     const when = p.scheduledAt ?? p.postedAt;
     if (!when) continue;
+    const platforms = Array.from(
+      new Set(p.targets.map((t) => t.socialAccount.platform))
+    );
     clientPosts.push({
       id: p.id,
       outline: p.outline,
       status: p.status,
       whenIso: when.toISOString(),
+      thumbnailUrl: p.thumbnailUrl,
+      mediaType: p.mediaType,
+      platforms,
+      // Only future, not-yet-published posts can be dragged to a new time.
+      draggable:
+        (p.status === "SCHEDULED" || p.status === "PENDING_APPROVAL") &&
+        !!p.scheduledAt,
     });
   }
 

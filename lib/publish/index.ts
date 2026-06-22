@@ -7,6 +7,11 @@ import { publishToInstagram } from "./instagram";
 import { publishToFacebook } from "./facebook";
 import { publishToLinkedIn } from "./linkedin";
 import { publishToPinterest, getFirstPinterestBoard } from "./pinterest";
+import { sendEmail } from "@/lib/email/resend";
+import {
+  publishedEmailHtml,
+  type PublishedTargetResult,
+} from "@/lib/email/templates";
 
 export interface PublishResult {
   platformPostId: string;
@@ -60,12 +65,20 @@ export async function publishPostToTargets(postId: string): Promise<{ targetId: 
   if (!post) throw new Error("Post not found");
   if (!post.caption) throw new Error("Caption required before publishing");
 
-  const targets = await db.postTarget.findMany({ where: { postId } });
+  const targets = await db.postTarget.findMany({
+    where: { postId },
+    include: { socialAccount: { select: { platform: true, displayName: true } } },
+  });
   if (targets.length === 0) throw new Error("No publish targets set for this post");
 
   const results: { targetId: string; status: "posted" | "failed"; error?: string }[] = [];
+  // Rich per-target detail for the published-summary email.
+  const emailResults: PublishedTargetResult[] = [];
 
   for (const target of targets) {
+    const platform = target.socialAccount.platform;
+    const accountName = target.socialAccount.displayName ?? null;
+
     // Claim the target
     const claimed = await db.postTarget.updateMany({
       where: { id: target.id, status: { in: ["PENDING", "FAILED"] } },
@@ -73,6 +86,7 @@ export async function publishPostToTargets(postId: string): Promise<{ targetId: 
     });
     if (claimed.count === 0) {
       results.push({ targetId: target.id, status: "posted" }); // already in flight or done
+      emailResults.push({ platform, accountName, status: "posted", url: target.platformUrl });
       continue;
     }
 
@@ -86,6 +100,7 @@ export async function publishPostToTargets(postId: string): Promise<{ targetId: 
         data: { status: "POSTED", platformPostId, platformUrl, postedAt: new Date(), errorMessage: null },
       });
       results.push({ targetId: target.id, status: "posted" });
+      emailResults.push({ platform, accountName, status: "posted", url: platformUrl });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await db.postTarget.update({
@@ -93,21 +108,69 @@ export async function publishPostToTargets(postId: string): Promise<{ targetId: 
         data: { status: "FAILED", errorMessage: message.slice(0, 1000) },
       });
       results.push({ targetId: target.id, status: "failed", error: message });
+      emailResults.push({ platform, accountName, status: "failed", url: null, error: message });
     }
   }
 
   // Roll up post-level status
-  const allPosted = results.every((r) => r.status === "posted");
   const anyPosted = results.some((r) => r.status === "posted");
+  const postedAt = anyPosted ? new Date() : null;
   await db.post.update({
     where: { id: postId },
     data: {
-      status: allPosted ? "POSTED" : anyPosted ? "POSTED" : "FAILED",
-      postedAt: anyPosted ? new Date() : undefined,
+      status: anyPosted ? "POSTED" : "FAILED",
+      postedAt: postedAt ?? undefined,
     },
   });
 
+  // Notify the creator with a published summary (best-effort — never block or
+  // fail the publish on email problems).
+  if (anyPosted) {
+    void sendPublishedEmail(post.userId, postId, postedAt ?? new Date(), emailResults);
+  }
+
   return results;
+}
+
+async function sendPublishedEmail(
+  creatorId: string,
+  postId: string,
+  postedAt: Date,
+  emailResults: PublishedTargetResult[]
+): Promise<void> {
+  try {
+    const [creator, post] = await Promise.all([
+      db.user.findUnique({ where: { id: creatorId }, select: { name: true, email: true } }),
+      db.post.findUnique({
+        where: { id: postId },
+        select: { outline: true, caption: true, thumbnailUrl: true, mediaType: true },
+      }),
+    ]);
+    if (!creator?.email || !post) return;
+
+    // App URL for email links — env-based (no request context here).
+    const appUrl = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "")
+      .trim()
+      .replace(/\/$/, "");
+
+    await sendEmail({
+      to: creator.email,
+      subject: `Published: ${post.outline}`,
+      html: publishedEmailHtml({
+        appUrl: appUrl || "https://seashell-app-3hblv.ondigitalocean.app",
+        recipientName: creator.name,
+        outline: post.outline,
+        caption: post.caption ?? "",
+        thumbnailUrl: post.thumbnailUrl,
+        mediaType: post.mediaType,
+        postedAt,
+        postId,
+        results: emailResults,
+      }),
+    });
+  } catch (err) {
+    console.error("[publish] published-email failed", err);
+  }
 }
 
 // Legacy single-account path: used when PostTarget rows don't exist (old posts).

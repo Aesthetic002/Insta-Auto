@@ -387,21 +387,30 @@ export function PostUploader() {
 
       {/* Progress */}
       {state.kind === "uploading" && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-zinc-500">
-            <span>
-              Uploading {state.total > 1 ? `photo ${state.current} of ${state.total}` : "to Cloudinary"}…
+        <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">
+              Step 1 of 2 · Uploading{" "}
+              {state.total > 1 ? `photo ${state.current} of ${state.total}` : "your media"}
             </span>
-            <span>{Math.round(state.percent)}%</span>
+            <span className="text-zinc-500">{Math.round(state.percent)}%</span>
           </div>
           <Progress value={state.percent} />
+          <p className="text-[11px] text-zinc-400">Next: we&apos;ll save it as a draft, then you add a caption.</p>
         </div>
       )}
       {state.kind === "saving" && (
-        <p className="flex items-center gap-2 text-sm text-zinc-500">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Saving draft…
-        </p>
+        <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-2 font-medium text-zinc-700 dark:text-zinc-200">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Step 2 of 2 · Saving draft
+            </span>
+            <span className="text-zinc-500">Almost there</span>
+          </div>
+          <Progress value={100} />
+          <p className="text-[11px] text-zinc-400">Next: add a caption and pick where to post.</p>
+        </div>
       )}
       {state.kind === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>

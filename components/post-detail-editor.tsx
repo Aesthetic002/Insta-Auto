@@ -23,6 +23,7 @@ import {
 } from "@/components/social-account-picker";
 import { PlatformPreview } from "@/components/platform-preview";
 import { ImageEditor } from "@/components/image-editor";
+import { PostStepper } from "@/components/post-stepper";
 
 interface PostShape {
   id: string;
@@ -190,8 +191,54 @@ export function PostDetailEditor({
 
   const isWorking = generating || publishing || deleting;
 
+  // ── Progress stepper ────────────────────────────────────────────────────
+  // Derive each step's state from what's actually filled in / the post status.
+  const hasMedia = post.mediaUrls.length > 0;
+  const hasCaption = caption.trim().length > 0;
+  const hasAccounts = selectedAccounts.length > 0;
+  const isLive = post.status === "POSTED";
+  const isScheduled = post.status === "SCHEDULED" || post.status === "PENDING_APPROVAL";
+
+  const stepperSteps = (() => {
+    type S = "done" | "current" | "upcoming";
+    const order = ["media", "caption", "accounts", "publish", "live"] as const;
+    const labels: Record<(typeof order)[number], { label: string; hint?: string }> = {
+      media: { label: "Media", hint: "uploaded" },
+      caption: { label: "Caption", hint: "write or generate one" },
+      accounts: { label: "Accounts", hint: "pick where to post" },
+      publish: { label: "Publish", hint: isScheduled ? "scheduled — waiting to go out" : "publish now or schedule" },
+      live: { label: "Live" },
+    };
+    // Determine the first incomplete step.
+    const completed: Record<(typeof order)[number], boolean> = {
+      media: hasMedia,
+      caption: hasCaption,
+      accounts: hasAccounts,
+      publish: isLive || isScheduled,
+      live: isLive,
+    };
+    let currentAssigned = false;
+    return order.map((key) => {
+      let state: S;
+      if (completed[key]) {
+        state = "done";
+      } else if (!currentAssigned) {
+        state = "current";
+        currentAssigned = true;
+      } else {
+        state = "upcoming";
+      }
+      return { key, ...labels[key], state };
+    });
+  })();
+
   return (
     <div className="space-y-6">
+      <PostStepper
+        steps={stepperSteps}
+        busyKey={publishing ? "publish" : null}
+      />
+
       {/* Outline */}
       <div>
         <Label className="text-xs uppercase tracking-wide text-zinc-500">Outline</Label>

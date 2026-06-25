@@ -98,6 +98,7 @@ export default async function SettingsPage({
   ]);
 
   const dropbox = storageConnections.find((s) => s.provider === "DROPBOX") ?? null;
+  const drive = storageConnections.find((s) => s.provider === "GOOGLE_DRIVE") ?? null;
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -279,6 +280,10 @@ export default async function SettingsPage({
             dropbox={{
               connected: !!dropbox,
               displayName: dropbox?.displayName ?? null,
+            }}
+            drive={{
+              connected: !!drive,
+              displayName: drive?.displayName ?? null,
             }}
           />
         )}

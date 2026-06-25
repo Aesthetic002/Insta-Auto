@@ -101,6 +101,50 @@ export async function uploadRemoteUrl(opts: {
   return { secureUrl: json.secure_url, publicId: json.public_id };
 }
 
+// Upload raw bytes (e.g. a Google Drive file fetched into memory) to Cloudinary.
+export async function uploadBuffer(opts: {
+  data: ArrayBuffer;
+  publicId: string;
+  resourceType: CloudinaryResourceType;
+  folder?: string;
+  ext?: string;
+}): Promise<UploadedAsset> {
+  const cloudName = required("CLOUDINARY_CLOUD_NAME");
+  const apiKey = required("CLOUDINARY_API_KEY");
+  const apiSecret = required("CLOUDINARY_API_SECRET");
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = opts.folder ?? "imports";
+
+  const toSign: Record<string, string | number> = {
+    folder,
+    public_id: opts.publicId,
+    timestamp,
+  };
+  const signature = signParams(toSign, apiSecret);
+
+  const form = new FormData();
+  form.append("api_key", apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", folder);
+  form.append("public_id", opts.publicId);
+  form.append("signature", signature);
+
+  const ext = opts.ext ?? (opts.resourceType === "video" ? "mp4" : "png");
+  form.append("file", new Blob([opts.data]), `${opts.publicId}.${ext}`);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/${opts.resourceType}/upload`,
+    { method: "POST", body: form }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Cloudinary buffer upload failed (${res.status}): ${text}`);
+  }
+  const json = (await res.json()) as { secure_url: string; public_id: string };
+  return { secureUrl: json.secure_url, publicId: json.public_id };
+}
+
 // Back-compat alias — old call sites that already imported uploadLocalVideo.
 export async function uploadLocalVideo(opts: {
   filePath: string;

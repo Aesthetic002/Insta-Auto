@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   CloudImportPicker,
   type ImportedMedia,
+  type CloudProvider,
 } from "@/components/cloud-import-picker";
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
@@ -55,7 +56,7 @@ export function PostUploader() {
 
   // Media imported from cloud storage (already a Cloudinary URL — skips upload).
   const [importedMedia, setImportedMedia] = useState<ImportedMedia | null>(null);
-  const [cloudPickerOpen, setCloudPickerOpen] = useState(false);
+  const [cloudPicker, setCloudPicker] = useState<CloudProvider | null>(null);
 
   const isWorking = state.kind === "uploading" || state.kind === "saving";
 
@@ -422,31 +423,44 @@ export function PostUploader() {
       {/* Import from cloud storage */}
       <div className="flex items-center gap-2">
         <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-        <span className="text-xs text-zinc-400">or</span>
+        <span className="text-xs text-zinc-400">or import from</span>
         <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={isWorking}
-        onClick={() => setCloudPickerOpen(true)}
-        className="w-full rounded-xl"
-      >
-        Import from Dropbox
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isWorking}
+          onClick={() => setCloudPicker("dropbox")}
+          className="rounded-xl"
+        >
+          Dropbox
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={isWorking}
+          onClick={() => setCloudPicker("drive")}
+          className="rounded-xl"
+        >
+          Google Drive
+        </Button>
+      </div>
       </>
       )}
 
-      <CloudImportPicker
-        provider="dropbox"
-        open={cloudPickerOpen}
-        onClose={() => setCloudPickerOpen(false)}
-        onImported={(m) => {
-          setImportedMedia(m);
-          setVideoFile(null);
-          setPhotos([]);
-        }}
-      />
+      {cloudPicker && (
+        <CloudImportPicker
+          provider={cloudPicker}
+          open={true}
+          onClose={() => setCloudPicker(null)}
+          onImported={(m) => {
+            setImportedMedia(m);
+            setVideoFile(null);
+            setPhotos([]);
+          }}
+        />
+      )}
 
       {/* Outline */}
       <div className="space-y-2">

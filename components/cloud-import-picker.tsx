@@ -26,13 +26,20 @@ interface CloudFile {
   isImage: boolean;
 }
 
+export type CloudProvider = "dropbox" | "drive";
+
+const PROVIDER_LABEL: Record<CloudProvider, string> = {
+  dropbox: "Dropbox",
+  drive: "Google Drive",
+};
+
 export function CloudImportPicker({
   provider,
   open,
   onClose,
   onImported,
 }: {
-  provider: "dropbox"; // extend with "drive" later
+  provider: CloudProvider;
   open: boolean;
   onClose: () => void;
   onImported: (media: ImportedMedia) => void;
@@ -90,7 +97,7 @@ export function CloudImportPicker({
 
   if (!open) return null;
 
-  const label = provider === "dropbox" ? "Dropbox" : "cloud storage";
+  const label = PROVIDER_LABEL[provider];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

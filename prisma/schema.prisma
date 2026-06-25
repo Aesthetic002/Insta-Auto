@@ -32,16 +32,43 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts          Account[]
-  sessions          Session[]
-  socialAccounts    SocialAccount[]
-  sheetConnections  SheetConnection[]
-  preferences       Preferences?
-  posts             Post[]
+  accounts            Account[]
+  sessions            Session[]
+  socialAccounts      SocialAccount[]
+  sheetConnections    SheetConnection[]
+  storageConnections  StorageConnection[]
+  preferences         Preferences?
+  posts               Post[]
 
   // Editor relationships
   editorAssignmentsAsCreator EditorAssignment[] @relation("CreatorAssignments")
   editorAssignmentsAsEditor  EditorAssignment[] @relation("EditorAssignments")
+}
+
+// Cloud storage the user connects to import media FROM (not a publish target).
+// Kept separate from SocialAccount so it never pollutes the publishing flow.
+enum StorageProvider {
+  DROPBOX
+  GOOGLE_DRIVE
+}
+
+model StorageConnection {
+  id             String          @id @default(cuid())
+  userId         String
+  provider       StorageProvider
+  // The provider account identity (Dropbox account_id, Google sub), for display.
+  accountId      String?
+  displayName    String?         // e.g. the connected account email / name
+  accessToken    String          @db.Text // encrypted
+  refreshToken   String?         @db.Text // encrypted (Drive uses refresh tokens)
+  tokenExpiresAt DateTime?
+  connectedAt    DateTime        @default(now())
+  disconnectedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 enum AssignmentStatus {

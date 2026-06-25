@@ -17,6 +17,10 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  CloudImportPicker,
+  type ImportedMedia,
+} from "@/components/cloud-import-picker";
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
 const MAX_PHOTO_BYTES = 20 * 1024 * 1024;  // 20 MB each
@@ -48,6 +52,10 @@ export function PostUploader() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [outline, setOutline] = useState("");
   const [state, setState] = useState<UploadState>({ kind: "idle" });
+
+  // Media imported from cloud storage (already a Cloudinary URL — skips upload).
+  const [importedMedia, setImportedMedia] = useState<ImportedMedia | null>(null);
+  const [cloudPickerOpen, setCloudPickerOpen] = useState(false);
 
   const isWorking = state.kind === "uploading" || state.kind === "saving";
 
@@ -168,6 +176,28 @@ export function PostUploader() {
     }
 
     try {
+      // Imported from cloud storage — already a Cloudinary URL, skip upload.
+      if (importedMedia) {
+        setState({ kind: "saving" });
+        const res = await fetch("/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mediaUrl: importedMedia.mediaUrl,
+            mediaUrls: [importedMedia.mediaUrl],
+            thumbnailUrl: importedMedia.thumbnailUrl,
+            outline,
+            mediaType: importedMedia.mediaType,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to save");
+        toast.success("Saved as draft. Add a caption next.");
+        router.push("/posts");
+        router.refresh();
+        return;
+      }
+
       if (mode === "VIDEO") {
         if (!videoFile) return setState({ kind: "error", message: "Pick a video first." });
 
@@ -227,7 +257,7 @@ export function PostUploader() {
     }
   };
 
-  const hasMedia = mode === "VIDEO" ? !!videoFile : photos.length > 0;
+  const hasMedia = !!importedMedia || (mode === "VIDEO" ? !!videoFile : photos.length > 0);
 
   return (
     <div className="space-y-6">
@@ -256,6 +286,28 @@ export function PostUploader() {
         ))}
       </div>
 
+      {/* Imported-from-cloud preview (replaces the dropzone when set) */}
+      {importedMedia ? (
+        <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+          <div className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+            Imported from cloud storage
+          </div>
+          {importedMedia.mediaType === "VIDEO" ? (
+            <video src={importedMedia.mediaUrl} controls className="w-full max-w-xs rounded-xl" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={importedMedia.mediaUrl} alt="Imported" className="w-full max-w-xs rounded-xl" />
+          )}
+          <button
+            type="button"
+            onClick={() => setImportedMedia(null)}
+            className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-red-600"
+          >
+            <X className="h-3 w-3" /> Remove
+          </button>
+        </div>
+      ) : (
+      <>
       {/* Drop zone */}
       {mode === "VIDEO" ? (
         <div
@@ -366,6 +418,35 @@ export function PostUploader() {
           )}
         </div>
       )}
+
+      {/* Import from cloud storage */}
+      <div className="flex items-center gap-2">
+        <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        <span className="text-xs text-zinc-400">or</span>
+        <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isWorking}
+        onClick={() => setCloudPickerOpen(true)}
+        className="w-full rounded-xl"
+      >
+        Import from Dropbox
+      </Button>
+      </>
+      )}
+
+      <CloudImportPicker
+        provider="dropbox"
+        open={cloudPickerOpen}
+        onClose={() => setCloudPickerOpen(false)}
+        onImported={(m) => {
+          setImportedMedia(m);
+          setVideoFile(null);
+          setPhotos([]);
+        }}
+      />
 
       {/* Outline */}
       <div className="space-y-2">

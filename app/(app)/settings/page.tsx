@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { ApprovalModeCard } from "@/components/approval-mode-card";
 import { CollaboratorsCard } from "@/components/collaborators-card";
+import { StorageCard } from "@/components/storage-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ export default async function SettingsPage({
   searchParams: Promise<{
     connected?: string;
     connected_platform?: string;
+    connected_storage?: string;
     disconnected?: string;
     error?: string;
   }>;
@@ -76,7 +78,7 @@ export default async function SettingsPage({
 
   const isCreator = me.role === "CREATOR";
 
-  const [socialAccounts, prefs, invites] = await Promise.all([
+  const [socialAccounts, prefs, invites, storageConnections] = await Promise.all([
     isCreator
       ? db.socialAccount.findMany({
           where: { userId },
@@ -87,7 +89,15 @@ export default async function SettingsPage({
       ? db.preferences.upsert({ where: { userId }, create: { userId }, update: {} })
       : Promise.resolve(null),
     loadInvites(userId, me.role!),
+    isCreator
+      ? db.storageConnection.findMany({
+          where: { userId, disconnectedAt: null },
+          select: { provider: true, displayName: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const dropbox = storageConnections.find((s) => s.provider === "DROPBOX") ?? null;
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -111,6 +121,12 @@ export default async function SettingsPage({
         <Banner kind="success">
           <CheckCircle2 className="h-4 w-4" />
           {params.connected_platform} account connected successfully.
+        </Banner>
+      )}
+      {params.connected_storage && (
+        <Banner kind="success">
+          <CheckCircle2 className="h-4 w-4" />
+          {params.connected_storage} connected — you can now import media from it.
         </Banner>
       )}
       {params.disconnected && (
@@ -256,6 +272,15 @@ export default async function SettingsPage({
               </a>
             </div>
           </section>
+        )}
+
+        {isCreator && (
+          <StorageCard
+            dropbox={{
+              connected: !!dropbox,
+              displayName: dropbox?.displayName ?? null,
+            }}
+          />
         )}
       </div>
     </div>

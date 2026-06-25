@@ -58,6 +58,49 @@ export async function uploadLocalFile(opts: {
   return { secureUrl: json.secure_url, publicId: json.public_id };
 }
 
+// Upload to Cloudinary by handing it a remote URL to fetch directly. Used to
+// import media from cloud storage (Dropbox/Drive temp links) without streaming
+// the bytes through our own server — Cloudinary pulls the file itself.
+export async function uploadRemoteUrl(opts: {
+  url: string;
+  publicId: string;
+  resourceType: CloudinaryResourceType;
+  folder?: string;
+}): Promise<UploadedAsset> {
+  const cloudName = required("CLOUDINARY_CLOUD_NAME");
+  const apiKey = required("CLOUDINARY_API_KEY");
+  const apiSecret = required("CLOUDINARY_API_SECRET");
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = opts.folder ?? "imports";
+
+  const toSign: Record<string, string | number> = {
+    folder,
+    public_id: opts.publicId,
+    timestamp,
+  };
+  const signature = signParams(toSign, apiSecret);
+
+  const form = new FormData();
+  form.append("api_key", apiKey);
+  form.append("timestamp", String(timestamp));
+  form.append("folder", folder);
+  form.append("public_id", opts.publicId);
+  form.append("signature", signature);
+  form.append("file", opts.url); // Cloudinary fetches this URL server-side
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/${opts.resourceType}/upload`,
+    { method: "POST", body: form }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Cloudinary remote upload failed (${res.status}): ${text}`);
+  }
+  const json = (await res.json()) as { secure_url: string; public_id: string };
+  return { secureUrl: json.secure_url, publicId: json.public_id };
+}
+
 // Back-compat alias — old call sites that already imported uploadLocalVideo.
 export async function uploadLocalVideo(opts: {
   filePath: string;

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST";
+export type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST" | "YOUTUBE";
 
 export interface SocialAccountOption {
   id: string;
@@ -20,6 +20,7 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   FACEBOOK: "Facebook",
   LINKEDIN: "LinkedIn",
   PINTEREST: "Pinterest",
+  YOUTUBE: "YouTube",
 };
 
 const PLATFORM_COLORS: Record<Platform, string> = {
@@ -27,6 +28,7 @@ const PLATFORM_COLORS: Record<Platform, string> = {
   FACEBOOK: "from-blue-600 to-blue-700",
   LINKEDIN: "from-[#0A66C2] to-[#004182]",
   PINTEREST: "from-red-600 to-red-700",
+  YOUTUBE: "from-red-500 to-red-600",
 };
 
 const PLATFORM_ICONS: Record<Platform, string> = {
@@ -34,16 +36,27 @@ const PLATFORM_ICONS: Record<Platform, string> = {
   FACEBOOK: "📘",
   LINKEDIN: "💼",
   PINTEREST: "📌",
+  YOUTUBE: "▶️",
 };
+
+// Platforms that only accept video (no photo/carousel).
+const VIDEO_ONLY: Platform[] = ["YOUTUBE"];
 
 interface Props {
   postId: string;
   accounts: SocialAccountOption[];
   selectedAccountIds: string[];
   onSelect: (accounts: SocialAccountOption[]) => void;
+  // When the post isn't a video, video-only platforms (YouTube) are hidden.
+  mediaType?: "VIDEO" | "PHOTO" | "CAROUSEL";
 }
 
-export function SocialAccountPicker({ postId, accounts, selectedAccountIds, onSelect }: Props) {
+export function SocialAccountPicker({ postId, accounts: allAccounts, selectedAccountIds, onSelect, mediaType }: Props) {
+  // Hide video-only platforms for non-video posts.
+  const accounts =
+    mediaType && mediaType !== "VIDEO"
+      ? allAccounts.filter((a) => !VIDEO_ONLY.includes(a.platform))
+      : allAccounts;
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedAccountIds));
 

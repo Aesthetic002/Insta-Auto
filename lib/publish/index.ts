@@ -7,6 +7,7 @@ import { publishToInstagram } from "./instagram";
 import { publishToFacebook } from "./facebook";
 import { publishToLinkedIn } from "./linkedin";
 import { publishToPinterest, getFirstPinterestBoard } from "./pinterest";
+import { publishToYouTube } from "./youtube";
 import { sendEmail } from "@/lib/email/resend";
 import {
   publishedEmailHtml,
@@ -52,6 +53,9 @@ async function dispatchToAccount(
       }
       if (!boardId) throw new Error("No Pinterest board found. Connect again to pick a board.");
       return publishToPinterest({ boardId, encryptedToken: acc.accessToken, mediaUrls, mediaType, caption: post.caption });
+    }
+    case "YOUTUBE": {
+      return publishToYouTube({ socialAccountId: acc.id, mediaUrls, mediaType, caption: post.caption });
     }
     default:
       throw new Error(`Unsupported platform: ${acc.platform}`);

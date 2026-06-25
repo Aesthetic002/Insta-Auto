@@ -142,6 +142,7 @@ enum Platform {
   FACEBOOK
   LINKEDIN
   PINTEREST
+  YOUTUBE
 }
 
 // A connected social account on any platform.
@@ -156,6 +157,9 @@ model SocialAccount {
   avatarUrl       String?   @db.Text
   // Encrypted access token
   accessToken     String    @db.Text
+  // Encrypted OAuth refresh token (YouTube/Google; null for platforms that
+  // issue long-lived tokens like Meta).
+  refreshToken    String?   @db.Text
   // For Meta: the FB Page access token (IG needs page token, not user token)
   pageId          String?
   tokenExpiresAt  DateTime?

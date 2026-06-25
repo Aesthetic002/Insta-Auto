@@ -102,6 +102,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   FACEBOOK: "Facebook",
   LINKEDIN: "LinkedIn",
   PINTEREST: "Pinterest",
+  YOUTUBE: "YouTube",
 };
 
 export function publishedEmailHtml(input: PublishedEmailInput): string {

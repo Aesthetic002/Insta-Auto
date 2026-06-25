@@ -317,6 +317,7 @@ export function PostDetailEditor({
             accounts={accounts}
             selectedAccountIds={selectedAccounts.map((a) => a.id)}
             onSelect={(accs) => setSelectedAccounts(accs)}
+            mediaType={post.mediaType}
           />
         </div>
       )}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-export type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST";
+export type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST" | "YOUTUBE";
 
 interface PreviewProps {
   platform: Platform;
@@ -21,6 +21,7 @@ export function PlatformPreview(props: PreviewProps) {
     case "FACEBOOK":  return <FacebookPreview  {...props} />;
     case "LINKEDIN":  return <LinkedInPreview  {...props} />;
     case "PINTEREST": return <PinterestPreview {...props} />;
+    case "YOUTUBE":   return <YouTubePreview   {...props} />;
   }
 }
 
@@ -378,6 +379,40 @@ function PinterestPreview({ displayName, avatarUrl, caption, mediaUrls }: Previe
         <div className="flex items-center gap-1.5">
           <Avatar src={avatarUrl} fallback={name} className="h-6 w-6 rounded-full bg-[#E60023] shrink-0" />
           <span className="text-[12px] font-medium truncate">{name}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YouTubePreview({ displayName, avatarUrl, caption, mediaUrls }: PreviewProps) {
+  const name = displayName ?? "Your Channel";
+  const src = mediaUrls[0] ?? null;
+  const title = (caption.split("\n")[0] || "Your video").slice(0, 100);
+
+  return (
+    <div className="w-full max-w-[240px] mx-auto overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-md dark:border-zinc-800 dark:bg-zinc-950 font-sans">
+      <div className="relative w-full overflow-hidden bg-black" style={{ aspectRatio: "9/16" }}>
+        {src ? (
+          <video src={src} className="h-full w-full object-cover" muted playsInline />
+        ) : (
+          <div className="flex h-full items-center justify-center text-zinc-500 text-xs">No video</div>
+        )}
+        {/* Play button + Shorts badge */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50">
+            <span className="ml-0.5 border-y-[8px] border-l-[13px] border-y-transparent border-l-white" />
+          </span>
+        </div>
+        <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          Shorts
+        </span>
+      </div>
+      <div className="p-3">
+        <p className="mb-2 line-clamp-2 text-[13px] font-semibold leading-snug">{title}</p>
+        <div className="flex items-center gap-1.5">
+          <Avatar src={avatarUrl} fallback={name} className="h-6 w-6 rounded-full bg-[#FF0000] shrink-0" />
+          <span className="text-[12px] text-zinc-500 truncate">{name}</span>
         </div>
       </div>
     </div>

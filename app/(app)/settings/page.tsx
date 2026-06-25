@@ -15,7 +15,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST";
+type Platform = "INSTAGRAM" | "FACEBOOK" | "LINKEDIN" | "PINTEREST" | "YOUTUBE";
 
 const PLATFORM_META: Record<Platform, { label: string; color: string; connectHref: string }> = {
   INSTAGRAM: {
@@ -38,6 +38,11 @@ const PLATFORM_META: Record<Platform, { label: string; color: string; connectHre
     color: "from-red-600 to-red-700",
     connectHref: "/api/pinterest/connect",
   },
+  YOUTUBE: {
+    label: "YouTube",
+    color: "from-red-500 to-red-600",
+    connectHref: "/api/youtube/connect",
+  },
 };
 
 const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
@@ -45,6 +50,7 @@ const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
   FACEBOOK: <span className="text-sm font-bold">f</span>,
   LINKEDIN: <span className="text-xs font-bold">in</span>,
   PINTEREST: <span className="text-sm font-bold">P</span>,
+  YOUTUBE: <span className="text-xs font-bold">YT</span>,
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

@@ -23,6 +23,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: "Facebook",
   LINKEDIN: "LinkedIn",
   PINTEREST: "Pinterest",
+  YOUTUBE: "YouTube",
 };
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -30,6 +31,7 @@ const PLATFORM_ICONS: Record<string, string> = {
   FACEBOOK: "📘",
   LINKEDIN: "💼",
   PINTEREST: "📌",
+  YOUTUBE: "▶️",
 };
 
 export default async function HistoryPage() {

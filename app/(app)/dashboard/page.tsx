@@ -93,7 +93,7 @@ export default async function DashboardPage() {
           <EmptyState
             icon={<Camera className="h-6 w-6 text-fuchsia-500" />}
             title="Connect a social account"
-            body="Connect Instagram, Facebook, LinkedIn, or Pinterest to start scheduling and publishing posts."
+            body="Connect Instagram, Facebook, LinkedIn, or YouTube to start scheduling and publishing posts."
             action={{ href: "/settings", label: "Connect accounts" }}
           />
         ) : (

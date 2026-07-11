@@ -24,7 +24,7 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Promote — Marketing on autopilot",
   description:
-    "Profession-specific ad templates, done-for-you. Pick a template, drop in your photos, and auto-publish across Instagram, Facebook, LinkedIn and Pinterest with AI captions, scheduling, and email approvals.",
+    "Upload once, let AI write the caption, and auto-publish across Instagram, Facebook, LinkedIn and YouTube. Schedule on a calendar, approve by email, and import media from Dropbox or Google Drive.",
 };
 
 export default function RootLayout({
